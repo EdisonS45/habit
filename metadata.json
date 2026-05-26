@@ -1,0 +1,6 @@
+{
+  "name": "CraftedByYours",
+  "description": "A crafted, premium React-based habit tracker featuring personalized data views, customized analytics, and dynamic tracking boards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
