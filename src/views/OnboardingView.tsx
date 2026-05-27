@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useHabitStore } from "../context/HabitContext";
-import { HabitCategory } from "../types";
+import { Category } from "../types";
 import { Check, ArrowRight, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const FOCUS_OPTIONS: { id: HabitCategory; label: string; emoji: string }[] = [
+const FOCUS_OPTIONS: { id: Category; label: string; emoji: string }[] = [
   { id: "health", label: "Health", emoji: "🥗" },
   { id: "fitness", label: "Fitness", emoji: "🏃" },
   { id: "study", label: "Study / Upskilling", emoji: "📚" },
@@ -13,7 +13,7 @@ const FOCUS_OPTIONS: { id: HabitCategory; label: string; emoji: string }[] = [
 ];
 
 const STARTER_HABITS_POOL: Record<
-  HabitCategory,
+  Category,
   { name: string; emoji: string; color: string; goalDaysPerWeek: number }
 > = {
   health: { name: "Drink 2 Litres of Water", emoji: "💧", color: "#FF9E9E", goalDaysPerWeek: 7 },
@@ -28,15 +28,14 @@ export const OnboardingView: React.FC = () => {
   
   const [step, setStep] = useState<number>(1);
   const [userName, setUserName] = useState<string>("");
-  const [selectedFocus, setSelectedFocus] = useState<HabitCategory[]>([]);
+  const [selectedFocus, setSelectedFocus] = useState<Category[]>([]);
   const [selectedStarters, setSelectedStarters] = useState<Record<string, boolean>>({});
-  const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
 
   const handleNextStep = () => {
     setStep((prev) => prev + 1);
   };
 
-  const toggleFocus = (id: HabitCategory) => {
+  const toggleFocus = (id: Category) => {
     setSelectedFocus((prev) => {
       if (prev.includes(id)) {
         return prev.filter((item) => item !== id);
@@ -53,7 +52,7 @@ export const OnboardingView: React.FC = () => {
   }));
 
   // Initialize starters mapping on load of step 4
-  React.useEffect(() => {
+  useEffect(() => {
     if (step === 4) {
       const initial: Record<string, boolean> = {};
       recommendedStarters.forEach((starter) => {
@@ -61,7 +60,7 @@ export const OnboardingView: React.FC = () => {
       });
       setSelectedStarters(initial);
     }
-  }, [step]);
+  }, [step, selectedFocus]);
 
   const toggleStarterSelection = (name: string) => {
     setSelectedStarters((prev) => ({
@@ -104,19 +103,22 @@ export const OnboardingView: React.FC = () => {
     exit: { x: -80, opacity: 0, transition: { duration: 0.18 } }
   };
 
-  const childrenVariants = {
-    hidden: { y: 12, opacity: 0 },
-    visible: (customIndex: number) => ({
-      y: 0,
-      opacity: 1,
-      transition: { delay: customIndex * 0.08, duration: 0.35, ease: "easeOut" }
-    })
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      if (step === 2 && userName.trim().length > 0) {
+        handleNextStep();
+      } else if (step === 3 && selectedFocus.length > 0) {
+        handleNextStep();
+      } else if (step === 4) {
+        handleOnboardingComplete();
+      }
+    }
   };
 
   return (
     <div id="onboarding-container" className="min-h-screen bg-[#FAFAF8] dark:bg-[#111111] text-gray-900 dark:text-neutral-100 flex flex-col items-center justify-center p-6 select-none">
       {/* Container Card */}
-      <div id="onboarding-card" className="w-full max-w-md bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-3xl p-6 md:p-10 shadow-xl space-y-8 relative overflow-hidden">
+      <div id="onboarding-card" className="w-full max-w-md bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-6 md:p-10 shadow-xl space-y-8 relative overflow-hidden">
         
         {/* Step dots with horizontal expansion spring transitions */}
         <div id="onboarding-progress-dots" className="flex items-center justify-center gap-2">
@@ -147,76 +149,34 @@ export const OnboardingView: React.FC = () => {
               exit="exit"
               className="space-y-6 text-center"
             >
-              {/* Logo / Wordmark Header */}
-              <motion.div variants={childrenVariants} custom={0} initial="hidden" animate="visible" className="flex justify-center">
-                <div className="w-16 h-16 bg-[#7C9EFF]/10 dark:bg-[#7C9EFF]/20 rounded-2xl flex items-center justify-center text-3xl">
-                  🌱
-                </div>
-              </motion.div>
-              
-              <div className="space-y-1.5">
-                <motion.h1 
-                  variants={childrenVariants} 
-                  custom={1} 
-                  initial="hidden" 
-                  animate="visible"
-                  className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-neutral-50"
-                >
-                  CraftedByYours
-                </motion.h1>
-                <motion.p 
-                  variants={childrenVariants} 
-                  custom={2} 
-                  initial="hidden" 
-                  animate="visible"
-                  className="text-xs font-semibold text-secondary select-none tracking-wide"
-                >
-                  Your habits. Your progress. Your pace.
-                </motion.p>
+              {/* Line-art illustration style */}
+              <div className="mx-auto w-32 h-32 text-[#7C9EFF] flex items-center justify-center">
+                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
               </div>
 
-              {/* Draw-in animation using SVG check stroke pathLength scaling */}
-              <motion.div variants={childrenVariants} custom={3} initial="hidden" animate="visible" className="py-2 flex justify-center">
-                <svg className="w-48 h-32 text-[#7C9EFF]/20" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <motion.circle 
-                    cx="100" 
-                    cy="60" 
-                    r="40" 
-                    fill="currentColor" 
-                    fillOpacity="0.4"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.1, duration: 0.5, type: "spring" }}
-                  />
-                  <motion.path 
-                    d="M85 62L95 72L115 52" 
-                    stroke="#7C9EFF" 
-                    strokeWidth="4" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ delay: 0.5, duration: 0.6, ease: "easeOut" }}
-                  />
-                  <motion.circle cx="40" cy="30" r="10" fill="currentColor" fillOpacity="0.2" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3 }} />
-                  <motion.circle cx="165" cy="90" r="15" fill="currentColor" fillOpacity="0.2" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4 }} />
-                </svg>
-              </motion.div>
+              <div className="space-y-2">
+                <span className="text-[10px] tracking-widest uppercase font-extrabold text-[#AAAAAA] block">
+                  CraftedByYours
+                </span>
+                <h1 className="text-3xl font-black text-gray-900 dark:text-neutral-50 tracking-tight">
+                  Habit Companion
+                </h1>
+                <p className="text-secondary text-xs font-semibold max-w-xs mx-auto leading-relaxed">
+                  Your habits. Your progress. Your pace. Take control of your routines with dynamic lists, streak tracking, and backup options.
+                </p>
+              </div>
 
-              <motion.button
-                id="start-onboarding-btn"
-                variants={childrenVariants}
-                custom={4}
-                initial="hidden"
-                animate="visible"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.96 }}
+              <button
+                type="button"
+                id="get-started-btn"
                 onClick={handleNextStep}
-                className="w-full py-3.5 text-xs font-bold bg-[#7C9EFF] hover:bg-[#688CEB] text-white rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 select-none uppercase tracking-widest"
+                className="w-full py-3.5 bg-[#7C9EFF] hover:bg-[#688CEB] active:scale-98 text-white font-extrabold text-xs tracking-wider rounded-2xl shadow-md transition-all uppercase cursor-pointer flex items-center justify-center gap-2"
               >
                 Get Started
                 <ArrowRight size={14} />
-              </motion.button>
+              </button>
             </motion.div>
           )}
 
@@ -227,65 +187,47 @@ export const OnboardingView: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              className="space-y-6"
+              className="space-y-6 text-center"
             >
-              <div className="text-center space-y-1">
-                <motion.h2 variants={childrenVariants} custom={0} initial="hidden" animate="visible" className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-neutral-50 text-center">
+              <div className="space-y-2">
+                <span className="text-[10px] tracking-widest uppercase font-extrabold text-[#7C9EFF] block">
+                  Personalization
+                </span>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-neutral-50 tracking-tight">
                   What should we call you?
-                </motion.h2>
-                <motion.p variants={childrenVariants} custom={1} initial="hidden" animate="visible" className="text-xs text-secondary">
-                  Let's personalize your daily dashboard view.
-                </motion.p>
+                </h2>
+                <p className="text-secondary text-xs font-semibold max-w-xs mx-auto">
+                  This helps personalize your greetings and achievement alerts.
+                </p>
               </div>
 
-              {/* Underline expanding from center on focus */}
-              <motion.div variants={childrenVariants} custom={2} initial="hidden" animate="visible" className="relative w-full py-4">
+              <div className="relative">
                 <input
-                  id="name-input"
                   type="text"
-                  autoFocus
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  placeholder={isInputFocused ? "" : "Enter your name"}
-                  className="w-full text-center text-xl font-bold bg-transparent border-b-2 border-gray-100 dark:border-neutral-800 py-3 text-gray-900 dark:text-neutral-100 placeholder-gray-300 dark:placeholder-neutral-600 focus:outline-none"
-                  maxLength={20}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter your name..."
+                  autoFocus
+                  required
+                  id="onboarding-username-input"
+                  className="w-full text-center px-4 py-3 border border-gray-150 dark:border-neutral-800 rounded-2xl bg-gray-50 dark:bg-neutral-850 focus:bg-white dark:focus:bg-neutral-900 text-sm font-bold placeholder-gray-400 dark:placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#7C9EFF] transition-all"
                 />
-                <motion.div
-                  className="absolute bottom-4 left-0 right-0 h-[2px] bg-[#7C9EFF] origin-center"
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: isInputFocused ? 1 : 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                />
-              </motion.div>
+              </div>
 
-              {/* Dynamic button spring scale triggered only with text */}
-              <motion.div variants={childrenVariants} custom={3} initial="hidden" animate="visible">
-                <AnimatePresence mode="wait">
-                  {userName.trim() ? (
-                    <motion.button
-                      key="active-btn"
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.9, opacity: 0 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.96 }}
-                      id="continue-name-btn"
-                      onClick={handleNextStep}
-                      className="w-full py-3.5 text-xs font-bold bg-[#7C9EFF] hover:bg-[#688CEB] text-white rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 select-none uppercase tracking-widest"
-                    >
-                      Continue
-                      <ArrowRight size={14} />
-                    </motion.button>
-                  ) : (
-                    <div className="w-full py-3.5 text-xs font-bold bg-gray-100 dark:bg-neutral-800 text-gray-400 rounded-xl flex items-center justify-center gap-2 select-none uppercase tracking-widest opacity-40 select-none cursor-not-allowed">
-                      Continue
-                      <ArrowRight size={14} />
-                    </div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
+              <button
+                type="button"
+                disabled={userName.trim().length === 0}
+                onClick={handleNextStep}
+                className={`w-full py-3.5 font-extrabold text-xs tracking-wider rounded-2xl shadow-md transition-all uppercase cursor-pointer flex items-center justify-center gap-2 ${
+                  userName.trim().length > 0
+                    ? "bg-[#7C9EFF] hover:bg-[#688CEB] active:scale-98 text-white"
+                    : "bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-neutral-600 cursor-not-allowed shadow-none"
+                }`}
+              >
+                Continue
+                <ArrowRight size={14} />
+              </button>
             </motion.div>
           )}
 
@@ -296,82 +238,58 @@ export const OnboardingView: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              className="space-y-6"
+              className="space-y-6 text-center"
             >
-              <div className="text-center space-y-1">
-                <motion.h2 variants={childrenVariants} custom={0} initial="hidden" animate="visible" className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-neutral-50 text-center">
-                  Select your focus areas
-                </motion.h2>
-                <motion.p variants={childrenVariants} custom={1} initial="hidden" animate="visible" className="text-xs text-secondary">
-                  Pick at least 1 pillar to suggest relevant starter goals.
-                </motion.p>
+              <div className="space-y-2">
+                <span className="text-[10px] tracking-widest uppercase font-extrabold text-[#7C9EFF] block">
+                  Focus Pillars
+                </span>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-neutral-50 tracking-tight">
+                  What would you focus on?
+                </h2>
+                <p className="text-secondary text-xs font-semibold max-w-xs mx-auto">
+                  Select key areas to structure your collateral tracking. At least 1 focus area is required.
+                </p>
               </div>
 
-              {/* Stagger list entrance using layout springs with bounce selected cells */}
-              <motion.div 
-                id="focus-picker-grid" 
-                className="grid grid-cols-1 gap-2.5 py-2 max-h-[240px] overflow-y-auto pr-1"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: { transition: { staggerChildren: 0.04 } }
-                }}
-              >
-                {FOCUS_OPTIONS.map((option) => {
-                  const active = selectedFocus.includes(option.id);
+              {/* Flex-wrap container with absolutely NO scrollbars or overflows */}
+              <div className="flex flex-wrap gap-2.5 justify-center py-2">
+                {FOCUS_OPTIONS.map((opt) => {
+                  const isSelected = selectedFocus.includes(opt.id);
                   return (
                     <motion.button
-                      key={option.id}
-                      variants={{
-                        hidden: { scale: 0.85, opacity: 0 },
-                        visible: { scale: 1, opacity: 1 }
-                      }}
-                      whileTap={{ scale: 0.94 }}
-                      animate={{
-                        borderColor: active ? "#7C9EFF" : "#F0EEE9",
-                        backgroundColor: active ? "rgba(124, 158, 255, 0.08)" : "transparent",
-                        scale: active ? 1.03 : 1,
-                      }}
-                      transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                      key={opt.id}
                       type="button"
-                      id={`focus-${option.id}`}
-                      onClick={() => toggleFocus(option.id)}
-                      className="flex items-center justify-between p-3.5 rounded-xl border border-gray-150 dark:border-neutral-800 text-left transition-all cursor-pointer bg-white dark:bg-neutral-900"
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => toggleFocus(opt.id)}
+                      onKeyDown={handleKeyDown}
+                      className={`px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-xs ${
+                        isSelected
+                          ? "bg-[rgba(124,158,255,0.08)] border-[#7C9EFF] text-[#7C9EFF] scale-102"
+                          : "bg-transparent border-gray-150 dark:border-neutral-800 text-gray-700 dark:text-neutral-300 hover:border-gray-300 dark:hover:border-neutral-600"
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl select-none leading-none">{option.emoji}</span>
-                        <span className="text-xs font-bold text-gray-800 dark:text-neutral-100 uppercase tracking-wider">{option.label}</span>
-                      </div>
-                      <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
-                          active
-                            ? "bg-[#7C9EFF] border-[#7C9EFF] text-white"
-                            : "border-gray-300 dark:border-neutral-700 bg-transparent"
-                        }`}
-                      >
-                        {active && <Check size={12} strokeWidth={3} />}
-                      </div>
+                      <span>{opt.emoji}</span>
+                      <span>{opt.label}</span>
                     </motion.button>
                   );
                 })}
-              </motion.div>
+              </div>
 
-              <motion.button
-                id="continue-focus-btn"
-                variants={childrenVariants}
-                custom={3}
-                initial="hidden"
-                animate="visible"
+              <button
+                type="button"
                 disabled={selectedFocus.length === 0}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.96 }}
                 onClick={handleNextStep}
-                className="w-full py-3.5 text-xs font-bold bg-[#7C9EFF] disabled:bg-[#FAFAF8] dark:disabled:bg-neutral-800 disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-[#688CEB] text-white rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 select-none uppercase tracking-widest"
+                className={`w-full py-3.5 font-extrabold text-xs tracking-wider rounded-2xl shadow-md transition-all uppercase cursor-pointer flex items-center justify-center gap-2 ${
+                  selectedFocus.length > 0
+                    ? "bg-[#7C9EFF] hover:bg-[#688CEB] active:scale-98 text-white"
+                    : "bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-neutral-600 cursor-not-allowed shadow-none"
+                }`}
               >
                 Continue
                 <ArrowRight size={14} />
-              </motion.button>
+              </button>
             </motion.div>
           )}
 
@@ -384,87 +302,65 @@ export const OnboardingView: React.FC = () => {
               exit="exit"
               className="space-y-6"
             >
-              <div className="text-center space-y-1">
-                <motion.h2 variants={childrenVariants} custom={0} initial="hidden" animate="visible" className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-neutral-50 text-center">
-                  Pillar starter suggestions:
-                </motion.h2>
-                <motion.p variants={childrenVariants} custom={1} initial="hidden" animate="visible" className="text-xs text-secondary">
-                  Toggle recommended habits. You can edit these anytime.
-                </motion.p>
+              <div className="text-center space-y-2">
+                <span className="text-[10px] tracking-widest uppercase font-extrabold text-[#7C9EFF] block">
+                  Starter Pack
+                </span>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-neutral-50 tracking-tight">
+                  Suggested Habits
+                </h2>
+                <p className="text-secondary text-xs font-semibold">
+                  Kickstart your journey with optimal preset habits based on your focus.
+                </p>
               </div>
 
-              {/* Stagger slide entrance lists */}
-              <motion.div 
-                id="starter-habits-list" 
-                className="space-y-2 max-h-[220px] overflow-y-auto pr-1"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: { transition: { staggerChildren: 0.05 } }
-                }}
-              >
+              {/* Suggestions Cards */}
+              <div className="space-y-2 my-2 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
                 {recommendedStarters.map((starter) => {
-                  const checked = selectedStarters[starter.name] ?? false;
+                  const active = selectedStarters[starter.name] || false;
                   return (
-                    <motion.div
+                    <div
                       key={starter.name}
-                      variants={{
-                        hidden: { y: 20, opacity: 0 },
-                        visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
-                      }}
                       onClick={() => toggleStarterSelection(starter.name)}
-                      style={{ borderLeftColor: starter.color }}
-                      className={`flex items-center justify-between p-3.5 bg-gray-50 dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 border-l-[4px] rounded-xl cursor-pointer hover:border-gray-200 transition-all select-none ${
-                        checked ? "shadow-xs bg-white dark:bg-neutral-800" : "opacity-50 select-none bg-gray-50/20"
+                      className={`flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50 dark:hover:bg-neutral-850 cursor-pointer transition-all ${
+                        active
+                          ? "border-[#7C9EFF] bg-[rgba(124,158,255,0.02)]"
+                          : "border-gray-150 dark:border-neutral-800"
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl shrink-0 leading-none">{starter.emoji}</span>
-                        <div className="min-w-0">
-                          <span className="block text-xs font-bold truncate text-gray-800 dark:text-neutral-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{starter.emoji}</span>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900 dark:text-neutral-50">
                             {starter.name}
-                          </span>
-                          <span className="block text-[9px] text-gray-400 capitalize font-bold tracking-wide">
-                            {starter.category} • {starter.goalDaysPerWeek}d goal
+                          </p>
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold" style={{ color: starter.color }}>
+                            {starter.category} • {starter.goalDaysPerWeek}d/wk
                           </span>
                         </div>
                       </div>
-                      
-                      {/* Interactive toggle matching the habit check-outline */}
-                      <motion.div
-                        whileTap={{ scale: 0.8 }}
-                        animate={{
-                          backgroundColor: checked ? "#7C9EFF" : "transparent",
-                          borderColor: checked ? "#7C9EFF" : "rgb(209, 213, 219)",
-                        }}
-                        className="w-5 h-5 rounded-full flex items-center justify-center border transition-all"
-                      >
-                        {checked && <Check size={11} strokeWidth={3} className="text-white" />}
-                      </motion.div>
-                    </motion.div>
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                        active ? "bg-[#7C9EFF] border-[#7C9EFF] text-white" : "border-gray-200 dark:border-neutral-700"
+                      }`}>
+                        {active && <Check size={12} strokeWidth={3} />}
+                      </div>
+                    </div>
                   );
                 })}
-              </motion.div>
+              </div>
 
-              <motion.button
-                id="onboarding-finish-btn"
-                variants={childrenVariants}
-                custom={3}
-                initial="hidden"
-                animate="visible"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.96 }}
+              <button
+                type="button"
+                id="start-tracking-btn"
                 onClick={handleOnboardingComplete}
-                className="w-full py-3.5 text-xs font-bold bg-[#7C9EFF] hover:bg-[#688CEB] text-white rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 select-none uppercase tracking-widest"
+                className="w-full py-3.5 bg-[#7C9EFF] hover:bg-[#688CEB] active:scale-98 text-white font-extrabold text-xs tracking-wider rounded-2xl shadow-md transition-all uppercase cursor-pointer flex items-center justify-center gap-2"
               >
                 Start Tracking
                 <Sparkles size={14} />
-              </motion.button>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
-
       </div>
     </div>
   );

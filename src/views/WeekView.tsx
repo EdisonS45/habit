@@ -5,9 +5,10 @@ import { ChevronLeft, ChevronRight, Check, Flame } from "lucide-react";
 import { WeeklyBarChart } from "../components/charts/WeeklyBarChart";
 import { CircularProgress } from "../components/ui/CircularProgress";
 import { motion } from "framer-motion";
+import { getStreak } from "../hooks/useAnalytics";
 
 export const WeekView: React.FC = () => {
-  const { habits, logs, toggleLog, getStreakForHabit, settings } = useHabitStore();
+  const { habits, logs, toggleLog, settings } = useHabitStore();
   
   // Weekly navigation anchor state
   const [refDate, setRefDate] = useState(new Date());
@@ -157,7 +158,7 @@ export const WeekView: React.FC = () => {
                   }
                 });
 
-                const currentStreak = getStreakForHabit(habit.id);
+                const currentStreak = getStreak(habit.id, logs);
 
                 return (
                   <div

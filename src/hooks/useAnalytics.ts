@@ -1,33 +1,105 @@
 import { useMemo } from "react";
-import { useHabitStore } from "../context/HabitContext";
 import { format, subDays, startOfWeek, addDays } from "date-fns";
-import { HabitCategory } from "../types";
+import { Habit, LogMap, Category } from "../types";
+import { useHabitStore } from "../context/HabitContext";
 
-export function useAnalytics(habitId?: string) {
-  const { habits, logs, getCompletionRate, getStreakForHabit, getLongestStreakForHabit } = useHabitStore();
+// Exact required formulas
+export function getStreak(habitId: string, logs: LogMap): number {
+  let count = 0;
+  let date = new Date();
+  const todayKey = format(date, "yyyy-MM-dd");
+  if (!logs[todayKey]?.includes(habitId)) {
+    date = subDays(date, 1);
+  }
+  while (true) {
+    const key = format(date, "yyyy-MM-dd");
+    if (logs[key]?.includes(habitId)) {
+      count++;
+      date = subDays(date, 1);
+    } else {
+      break;
+    }
+  }
+  return count;
+}
 
-  // 1. Completion rate per category (Calculated over last 30 days)
+export function getLongestStreak(habitId: string, logs: LogMap): number {
+  const loggedDates = Object.keys(logs)
+    .filter((dStr) => logs[dStr]?.includes(habitId))
+    .sort();
+
+  if (loggedDates.length === 0) return 0;
+  
+  let maxStreak = 1;
+  let currentRun = 1;
+
+  for (let i = 1; i < loggedDates.length; i++) {
+    const prev = new Date(loggedDates[i - 1] + "T00:00:00");
+    const curr = new Date(loggedDates[i] + "T00:00:00");
+    const diff = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diff === 1) {
+      currentRun++;
+      if (currentRun > maxStreak) {
+        maxStreak = currentRun;
+      }
+    } else if (diff > 1) {
+      currentRun = 1;
+    }
+  }
+  return maxStreak;
+}
+
+export function getCompletionRate(habitId: string, logs: LogMap, days = 30): number {
+  let completed = 0;
+  for (let i = 0; i < days; i++) {
+    const key = format(subDays(new Date(), i), "yyyy-MM-dd");
+    if (logs[key]?.includes(habitId)) completed++;
+  }
+  return Math.round((completed / days) * 100);
+}
+
+export function getWeeklyConsistency(habits: Habit[], logs: LogMap): number {
+  const activeHabits = habits.filter((h) => h.isActive);
+  if (!activeHabits.length) return 0;
+  
+  const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const key = format(addDays(monday, i), "yyyy-MM-dd");
+    total += (logs[key] ?? []).filter((id) =>
+      activeHabits.some((h) => h.id === id)
+    ).length;
+  }
+  return Math.round((total / (activeHabits.length * 7)) * 100);
+}
+
+// Custom hook signature aligned with Analytics views
+export function useAnalytics(selectedHabitId?: string) {
+  const { habits, logs } = useHabitStore();
+
+  // Category Breakdown: health, fitness, study, mindfulness, productivity
   const categoryAnalytics = useMemo(() => {
-    const categories: HabitCategory[] = ["health", "fitness", "study", "mindfulness", "productivity"];
+    const categories: Category[] = ["health", "fitness", "study", "mindfulness", "productivity"];
     
     return categories.map((cat) => {
       const catHabits = habits.filter((h) => h.category === cat && h.isActive);
       if (catHabits.length === 0) {
-        return { name: cat, rate: 0, count: 0 };
+        return { name: cat.charAt(0).toUpperCase() + cat.slice(1), rate: 0, count: 0 };
       }
       
-      const totalRate = catHabits.reduce((sum, h) => sum + getCompletionRate(h.id, 30), 0);
+      const totalRate = catHabits.reduce((sum, h) => sum + getCompletionRate(h.id, logs, 30), 0);
       const avgRate = Math.round(totalRate / catHabits.length);
       
       return {
-        name: cat.charAt(0).toUpperCase() + cat.slice(1),
+        name: cat.charAt(0).toUpperCase() + cat.slice(1), // Health, Fitness, Study, Mindfulness, Productivity
         rate: avgRate,
         count: catHabits.length,
       };
     });
-  }, [habits, getCompletionRate]);
+  }, [habits, logs]);
 
-  // 2. Streaks Leaderboard (Top 3 streaks of active habits)
+  // Leaders list
   const streaksLeaderboard = useMemo(() => {
     const activeHabits = habits.filter((h) => h.isActive);
     const scored = activeHabits.map((h) => ({
@@ -36,27 +108,23 @@ export function useAnalytics(habitId?: string) {
       emoji: h.emoji,
       color: h.color,
       category: h.category,
-      streak: getStreakForHabit(h.id),
-      longestStreak: getLongestStreakForHabit(h.id),
+      streak: getStreak(h.id, logs),
+      longestStreak: getLongestStreak(h.id, logs),
     }));
 
-    // Sort by stream desc, then by name
-    return scored.sort((a, b) => b.streak - a.streak).slice(0, 3);
-  }, [habits, getStreakForHabit, getLongestStreakForHabit]);
+    return scored.sort((a, b) => b.streak - a.streak);
+  }, [habits, logs]);
 
-  // 3. Completion trend for last 30 days
-  // Returns array of { date: "May 1", completions: number } for charts
+  // Daily tracker last 30 days
   const monthlyCompletionTrend = useMemo(() => {
     const trend = [];
-    let d = new Date();
-    // Generate dates backwards and then reverse for chronological order
+    const d = new Date();
     for (let i = 29; i >= 0; i--) {
       const targetDate = subDays(d, i);
       const dateStr = format(targetDate, "yyyy-MM-dd");
       const labelStr = format(targetDate, "MMM d");
       
       const completedList = logs[dateStr] || [];
-      // Count existing active/inactive habits logged
       const count = completedList.filter((id) => habits.some((h) => h.id === id)).length;
 
       trend.push({
@@ -67,35 +135,30 @@ export function useAnalytics(habitId?: string) {
     return trend;
   }, [logs, habits]);
 
-  // If a specific habitId is targeted:
+  // Individual statistics computed over a selected habit ID
   const individualHabitStats = useMemo(() => {
-    if (!habitId) return null;
+    if (!selectedHabitId || selectedHabitId === "all") return null;
 
-    const habit = habits.find((h) => h.id === habitId);
+    const habit = habits.find((h) => h.id === selectedHabitId);
     if (!habit) return null;
 
-    const currentStreak = getStreakForHabit(habitId);
-    const longestStreak = getLongestStreakForHabit(habitId);
+    const currentStreak = getStreak(selectedHabitId, logs);
+    const longestStreak = getLongestStreak(selectedHabitId, logs);
     
-    const rate7 = getCompletionRate(habitId, 7);
-    const rate30 = getCompletionRate(habitId, 30);
-    const rate90 = getCompletionRate(habitId, 90);
+    const rate7 = getCompletionRate(selectedHabitId, logs, 7);
+    const rate30 = getCompletionRate(selectedHabitId, logs, 30);
+    const rate90 = getCompletionRate(selectedHabitId, logs, 90);
 
-    // 8-week completion volume data (for bar chart)
     const completionsPastWeeks = [];
     const today = new Date();
-    
-    // We compute for the last 8 weeks
     for (let w = 7; w >= 0; w--) {
-      // Find start of week (Sunday or Monday, let's use week starts on Monday)
       const weekDate = subDays(today, w * 7);
       const mon = startOfWeek(weekDate, { weekStartsOn: 1 });
       
       let logsInWeek = 0;
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
         const checkStr = format(addDays(mon, dayOffset), "yyyy-MM-dd");
-        const list = logs[checkStr] || [];
-        if (list.includes(habitId)) {
+        if ((logs[checkStr] || []).includes(selectedHabitId)) {
           logsInWeek++;
         }
       }
@@ -115,7 +178,7 @@ export function useAnalytics(habitId?: string) {
       rate90,
       completionsPastWeeks,
     };
-  }, [habitId, habits, logs, getCompletionRate, getStreakForHabit, getLongestStreakForHabit]);
+  }, [selectedHabitId, habits, logs]);
 
   return {
     categoryAnalytics,

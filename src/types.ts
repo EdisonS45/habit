@@ -1,32 +1,31 @@
-export type HabitCategory = "health" | "fitness" | "study" | "mindfulness" | "productivity";
+export type Category = "health" | "fitness" | "study" | "mindfulness" | "productivity";
 
 export interface Habit {
-  id: string;
+  id: string;           // crypto.randomUUID() or fallback unique ID
   name: string;
-  category: HabitCategory;
-  color: string; // Hex color string
+  category: Category;
+  color: string;        // hex from picker
   emoji: string;
   goalDaysPerWeek: number; // 1 to 7
-  createdAt: string; // ISO date string
+  createdAt: string;    // ISO date string
   isActive: boolean;
 }
 
-export type LogMap = {
-  [date: string]: string[]; // date key format: YYYY-MM-DD, values are arrays of completed habit IDs
-};
-
 export interface Settings {
-  theme: "light" | "dark";
   userName: string;
-  focusAreas: string[];
+  focusAreas: Category[];
   onboardingComplete: boolean;
-  accentColor: string; // Hex styling color
+  theme: "light" | "dark";
+  accentColor: string;  // hex color styling
 }
+
+export type LogMap = Record<string, string[]>; // "2026-05-26" -> ["habit-id-1", "habit-id-2"]
 
 export interface HabitStoreContextType {
   habits: Habit[];
   logs: LogMap;
   settings: Settings;
+  celebrated: Record<string, boolean>;
   activeView: string;
   setActiveView: (view: string) => void;
   addHabit: (habit: Omit<Habit, "id" | "createdAt" | "isActive">) => void;
@@ -37,10 +36,6 @@ export interface HabitStoreContextType {
   updateSettings: (updates: Partial<Settings>) => void;
   exportData: () => string;
   importData: (jsonString: string) => boolean;
-  getStreakForHabit: (habitId: string) => number;
-  getLongestStreakForHabit: (habitId: string) => number;
-  getCompletionRate: (habitId: string, days?: number) => number;
-  getWeeklyConsistencyScore: () => number;
-  getTodayCompletedCount: () => number;
-  getTotalCompletedAllTime: () => number;
+  wipeDatabase: () => void;
+  celebrateMilestone: (habitId: string, milestone: number) => void;
 }

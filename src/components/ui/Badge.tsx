@@ -1,11 +1,11 @@
 import React from "react";
-import { HabitCategory } from "../../types";
+import { Category } from "../../types";
 
 interface BadgeProps {
-  category: HabitCategory;
+  category: Category;
 }
 
-export const CATEGORY_STYLES: Record<HabitCategory, { bg: string; text: string; label: string; dot: string }> = {
+export const CATEGORY_STYLES: Record<Category, { bg: string; text: string; label: string; dot: string }> = {
   health: {
     bg: "bg-[#FF9E9E]/15 dark:bg-[#FF9E9E]/20",
     text: "text-[#E05B5B] dark:text-[#FFA6A6]",
@@ -44,7 +44,7 @@ export const Badge: React.FC<BadgeProps> = ({ category }) => {
   return (
     <span
       id={`badge-${category}`}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${styles.bg} ${styles.text}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles.bg} ${styles.text}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${styles.dot}`} />
       {styles.label}
