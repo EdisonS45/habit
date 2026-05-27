@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Habit, Category } from "../../types";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Plus } from "lucide-react";
+import { useHabitStore } from "../../context/HabitContext";
 
 interface HabitFormProps {
   initialHabit?: Habit;
@@ -13,8 +14,6 @@ interface HabitFormProps {
   }) => void;
   onCancel?: () => void;
 }
-
-const CATEGORIES: Category[] = ["health", "fitness", "study", "mindfulness", "productivity"];
 
 const CURATED_EMOJIS = [
   "🏃", "🚴", "🤸", "🏋️‍♀️", "🥗", "💧", "🧘", "🧠", "📊", "🐨",
@@ -37,12 +36,51 @@ export const HabitForm: React.FC<HabitFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const { habits } = useHabitStore();
   const [name, setName] = useState(initialHabit?.name || "");
   const [category, setCategory] = useState<Category>(initialHabit?.category || "health");
   const [color, setColor] = useState(initialHabit?.color || PASTEL_SWATCHES[0]);
   const [emoji, setEmoji] = useState(initialHabit?.emoji || CURATED_EMOJIS[0]);
   const [goalDaysPerWeek, setGoalDaysPerWeek] = useState(initialHabit?.goalDaysPerWeek || 5);
   const [error, setError] = useState("");
+
+  const [customInput, setCustomInput] = useState("");
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+
+  // Initialize custom categories from existing trackings in user data
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    const defaultCategories = ["health", "fitness", "study", "mindfulness", "productivity"];
+    const activeCustom = habits
+      .map((h) => h.category.toLowerCase().trim())
+      .filter((cat) => cat && !defaultCategories.includes(cat));
+    return Array.from(new Set(activeCustom));
+  });
+
+  const defaultCategories = ["health", "fitness", "study", "mindfulness", "productivity"];
+  const allCategories = Array.from(new Set([...defaultCategories, ...customCategories]));
+
+  // Auto-suggestion matching strategy for intuitive category routing
+  const getSubtleSuggestion = (): string | null => {
+    const val = name.toLowerCase().trim();
+    if (!val) return null;
+    
+    const rules: Record<string, string[]> = {
+      health: ["water", "drink", "sleep", "eat", "teeth", "brush", "fruit", "vitamin", "bed", "nutrition", "diet", "pill", "meds", "medicine", "hydration", "teeth"],
+      fitness: ["run", "gym", "lift", "workout", "cardio", "stretch", "walk", "bike", "cycle", "swim", "fitness", "exercise", "pushup", "yoga", "squat", "training"],
+      study: ["read", "study", "book", "learn", "course", "code", "write", "practice", "class", "skills", "language", "vocab", "duolingo", "homework"],
+      mindfulness: ["meditat", "breathe", "breath", "journal", "relax", "reflect", "calm", "yoga", "mindful", "pray", "gratitude", "reflect", "silence"],
+      productivity: ["work", "focus", "todo", "task", "plan", "clean", "organize", "priority", "email", "clutter", "meeting", "code", "dev"],
+      finance: ["money", "save", "spend", "budget", "finance", "expense", "invest", "bill"],
+      relationships: ["friend", "family", "date", "talk", "social", "text", "call", "meetup", "connect", "spouse", "partner"]
+    };
+
+    for (const [catName, keywords] of Object.entries(rules)) {
+      if (keywords.some((k) => val.includes(k))) return catName;
+    }
+    return null;
+  };
+
+  const suggestion = getSubtleSuggestion();
 
   const handleGoalStep = (step: number) => {
     setGoalDaysPerWeek((prev) => Math.max(1, Math.min(7, prev + step)));
@@ -73,7 +111,7 @@ export const HabitForm: React.FC<HabitFormProps> = ({
 
   return (
     <form id="habit-form" onSubmit={handleFormSubmit} className="space-y-5 text-left select-none">
-      {/* Habit Name */}
+      {/* Habit Name and suggestion badge */}
       <div className="space-y-1.5">
         <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
           Habit Name
@@ -92,29 +130,104 @@ export const HabitForm: React.FC<HabitFormProps> = ({
           autoFocus
         />
         {error && <p className="text-red-500 text-[10px] font-bold">{error}</p>}
+        
+        {/* Render Suggestion as lightweight badge */}
+        {suggestion && category !== suggestion && (
+          <div className="pt-1.5 animate-scale-up">
+            <button
+              type="button"
+              onClick={() => {
+                if (!allCategories.includes(suggestion)) {
+                  setCustomCategories((prev) => [...prev, suggestion]);
+                }
+                setCategory(suggestion);
+              }}
+              className="text-[9px] font-extrabold text-[#7C9EFF] hover:text-[#5E83FA] flex items-center justify-between gap-2.5 bg-[#7C9EFF]/5 dark:bg-[#7C9EFF]/10 px-3 py-1.5 rounded-xl border border-[#7C9EFF]/15 hover:border-[#7C9EFF]/40 transition-all select-none cursor-pointer"
+            >
+              <span>💡 Categorize under <span className="capitalize text-gray-800 dark:text-neutral-200 font-extrabold">{suggestion}</span> based on title?</span>
+              <span className="font-extrabold text-[8px] px-1.5 py-0.5 rounded-md bg-[#7C9EFF] text-white uppercase tracking-wider">Apply Match</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Category Segmented Control */}
-      <div className="space-y-1.5">
-        <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
-          Category
-        </label>
-        <div id="category-segmented-control" className="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-neutral-850 rounded-xl border border-gray-150 dark:border-neutral-800">
-          {CATEGORIES.map((cat) => (
+      {/* Modern, scaleable expandable dynamic category picker with custom addition support */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between select-none">
+          <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
+            Category Tag
+          </label>
+          
+          {isAddingCustom ? (
+            <div className="flex items-center gap-1.5 animate-scale-up">
+              <input
+                type="text"
+                placeholder="e.g. Creativity"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                maxLength={20}
+                className="px-2 py-1 text-[10px] font-bold rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-gray-800 dark:text-neutral-200 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const cleaned = customInput.trim().toLowerCase();
+                  if (cleaned) {
+                    if (!allCategories.includes(cleaned)) {
+                      setCustomCategories((prev) => [...prev, cleaned]);
+                    }
+                    setCategory(cleaned);
+                  }
+                  setIsAddingCustom(false);
+                  setCustomInput("");
+                }}
+                className="px-2 py-1 bg-[#7C9EFF] text-white text-[9px] font-extrabold rounded-lg uppercase cursor-pointer"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingCustom(false);
+                  setCustomInput("");
+                }}
+                className="text-[10px] font-black text-gray-400 hover:text-gray-600 px-1.5 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
             <button
-              key={cat}
               type="button"
-              id={`cat-btn-${cat}`}
-              onClick={() => setCategory(cat)}
-              className={`py-2 text-[10px] font-extrabold rounded-lg capitalize transition-all select-none ${
-                category === cat
-                  ? "bg-white dark:bg-neutral-800 shadow-xs text-gray-900 dark:text-neutral-50 border border-gray-200 dark:border-neutral-700"
-                  : "text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-neutral-200"
-              }`}
+              onClick={() => setIsAddingCustom(true)}
+              className="text-[9px] font-black uppercase tracking-widest text-[#7C9EFF] hover:text-[#5E83FA] flex items-center gap-1 cursor-pointer"
             >
-              {cat}
+              <Plus size={10} strokeWidth={3} />
+              <span>New Category</span>
             </button>
-          ))}
+          )}
+        </div>
+
+        {/* Categories wrap chip elements */}
+        <div id="category-chips-picker" className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto pt-0.5 pr-1 select-none">
+          {allCategories.map((cat) => {
+            const isSelected = category === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                id={`cat-chip-${cat}`}
+                onClick={() => setCategory(cat)}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-[#7C9EFF] text-white shadow-3xs border border-[#7C9EFF]"
+                    : "bg-gray-150/45 dark:bg-neutral-850 text-gray-500 dark:text-neutral-400 border border-gray-150 dark:border-neutral-800/60 hover:border-gray-300"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
       </div>
 

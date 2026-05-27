@@ -4,7 +4,7 @@ import { Habit, Category } from "../types";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { HabitForm } from "../components/habits/HabitForm";
 import { format } from "date-fns";
-import { Trash2, Edit2, Upload, Download, RotateCcw, Check, Sparkles, User, Palette, FolderGit2 } from "lucide-react";
+import { Trash2, Edit2, Upload, Download, RotateCcw, Check, Sparkles, User, Palette, FolderGit2, Heart, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const ACCENT_OPTIONS = [
@@ -380,50 +380,101 @@ export const SettingsView: React.FC = () => {
         )}
       </div>
 
-      {/* SECTION 4: Database Import / Export backups */}
-      <div id="database-persistence-card" className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-neutral-200">
-          Database & Local Backup Management
-        </h4>
+      {/* SECTION 4: ADHD & Burnout Protection Suite */}
+      <div id="adhd-protection-card" className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-5 md:p-6 shadow-xs space-y-5">
+        <div className="flex items-center gap-2 pb-2.5 border-b border-gray-100 dark:border-neutral-800">
+          <Shield size={16} className="text-[#7C9EFF]" />
+          <h4 className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-neutral-200">
+            ADHD Support & Burnout Protection Suite
+          </h4>
+        </div>
+        
         <p className="text-xs text-secondary leading-relaxed">
-          Your habits, milestone achievements, and logs persist offline in your secure sandboxed browser storage. Export complete file backlogs to swap profiles or load backups.
+          Struggling with focus or exhaustion? Activate these cognitive buffers to make the companion adapt compassionately to your emotional state.
         </p>
 
-        <div id="data-actions-flex" className="flex flex-wrap gap-2.5 pt-1">
-          {/* Download JSON backup */}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-[#7C9EFF] text-gray-600 dark:text-neutral-300 transition-all cursor-pointer shadow-3xs hover:scale-[1.01] active:scale-95"
-          >
-            <Download size={13} />
-            <span>Export Backup JSON</span>
-          </button>
+        <div className="space-y-4">
+          {/* Streak Freeze Tool */}
+          <div className="flex items-start justify-between gap-4 p-3.5 rounded-2xl bg-gray-50 dark:bg-neutral-950 border border-gray-150 dark:border-neutral-800/80">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">❄️</span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-gray-800 dark:text-neutral-200">
+                  Zero-Guilt Streak Freeze
+                </span>
+                {settings.streakFreezeActive && (
+                  <span className="animate-pulse bg-sky-400/10 text-sky-500 border border-sky-400/20 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-secondary font-semibold leading-normal">
+                Life gets hectic. Freeze your daily checking streaks when exhausted, sick, or on vacation. Zero penalty, zero guilt.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateSettings({ streakFreezeActive: !settings.streakFreezeActive })}
+              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                settings.streakFreezeActive
+                  ? "bg-sky-500 text-white shadow-xs"
+                  : "border border-gray-200 dark:border-neutral-800 hover:border-gray-400 text-gray-600 dark:text-neutral-400"
+              }`}
+            >
+              {settings.streakFreezeActive ? "On" : "Off"}
+            </button>
+          </div>
 
-          {/* Upload JSON backup */}
-          <button
-            onClick={handleImportClick}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-[#7C9EFF] text-gray-600 dark:text-neutral-300 transition-all cursor-pointer shadow-3xs hover:scale-[1.01] active:scale-95"
-          >
-            <Upload size={13} />
-            <span>Import Sync JSON</span>
-          </button>
-          
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportFileChange}
-            accept=".json"
-            className="hidden"
-          />
+          {/* ADHD visual tips buddy */}
+          <div className="flex items-start justify-between gap-4 p-3.5 rounded-2xl bg-gray-50 dark:bg-neutral-950 border border-gray-150 dark:border-neutral-800/80">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🧠</span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-gray-800 dark:text-neutral-200">
+                  ADHD Focus Compassion Companion
+                </span>
+                {settings.adhdCompanionEnabled && (
+                  <span className="animate-pulse bg-[#7C9EFF]/10 text-[#7293FD] border border-[#7C9EFF]/20 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-secondary font-semibold leading-normal">
+                Inject mindful micro-coaching alerts and ADHD quick reset suggestions into the tracking layout when feeling stuck.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateSettings({ adhdCompanionEnabled: !settings.adhdCompanionEnabled })}
+              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                settings.adhdCompanionEnabled
+                  ? "bg-[#7C9EFF] text-white shadow-xs"
+                  : "border border-gray-200 dark:border-neutral-800 hover:border-gray-400 text-gray-600 dark:text-neutral-400"
+              }`}
+            >
+              {settings.adhdCompanionEnabled ? "On" : "Off"}
+            </button>
+          </div>
 
-          {/* Hard Reset database option */}
-          <button
-            onClick={() => setResetEverythingStep(1)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border border-red-200 dark:border-red-950/20 bg-rose-500/10 hover:bg-rose-500/20 text-red-500 transition-all cursor-pointer shadow-3xs hover:scale-[1.01] active:scale-95"
-          >
-            <RotateCcw size={13} />
-            <span>Reset Everything</span>
-          </button>
+          {/* Clean Slate Ceremony reset trigger */}
+          <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-red-100 dark:border-red-950/20 bg-rose-500/5">
+            <div className="leading-tight">
+              <span className="block text-[10px] font-extrabold uppercase text-rose-500 tracking-wider">
+                Psychological Fresh Start
+              </span>
+              <span className="block text-[9px] text-[#A0A0A0] font-semibold mt-0.5">
+                Erase legacy friction and starting cleanly is an ADHD superpower.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setResetEverythingStep(1)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-xs hover:bg-rose-600 active:scale-95 transition-all cursor-pointer"
+            >
+              <RotateCcw size={10} />
+              <span>Restart Ceremonially</span>
+            </button>
+          </div>
         </div>
       </div>
 

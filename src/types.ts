@@ -1,4 +1,4 @@
-export type Category = "health" | "fitness" | "study" | "mindfulness" | "productivity";
+export type Category = string;
 
 export interface Habit {
   id: string;           // crypto.randomUUID() or fallback unique ID
@@ -17,6 +17,8 @@ export interface Settings {
   onboardingComplete: boolean;
   theme: "light" | "dark";
   accentColor: string;  // hex color styling
+  streakFreezeActive?: boolean; // ADHD & Burnout streak freeze
+  adhdCompanionEnabled?: boolean; // ADHD visual cues enabled
 }
 
 export type LogMap = Record<string, string[]>; // "2026-05-26" -> ["habit-id-1", "habit-id-2"]

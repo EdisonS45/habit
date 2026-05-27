@@ -205,6 +205,46 @@ export const TodayView: React.FC = () => {
         </div>
       </div>
 
+      {/* ADHD support companion guidelines & notifications and Streak Freeze banners */}
+      {settings.streakFreezeActive && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98, y: 3 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="p-4 rounded-3xl bg-sky-500/[0.04] border border-sky-450/20 text-sky-850 dark:text-sky-450 text-xs flex items-start gap-3 select-none"
+        >
+          <span className="text-base select-none shrink-0">❄️</span>
+          <div className="space-y-1 text-left">
+            <h5 className="font-extrabold text-[10px] uppercase tracking-wider text-sky-900 dark:text-sky-300 leading-none">
+              STREAK FREEZE ACTIVE TODAY
+            </h5>
+            <p className="font-semibold text-[10px] leading-relaxed text-sky-700/90 dark:text-sky-400">
+              Your streaks are frozen and completely protected. Self-care is discipline. Give yourself permission to disconnect and recover without any penalty.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {settings.adhdCompanionEnabled && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98, y: 3 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="p-4 rounded-[24px] bg-slate-50/80 dark:bg-neutral-900/40 border border-[#7C9EFF]/15 text-[#7C9EFF] text-xs flex items-start gap-3 select-none"
+        >
+          <span className="text-base select-none shrink-0">🧠</span>
+          <div className="space-y-1 text-left">
+            <h5 className="font-extrabold text-[9px] uppercase tracking-widest text-[#5E83FA] dark:text-[#9FB7FF] leading-none">
+              MIND SUPPORT COMPANION
+            </h5>
+            <p className="font-semibold text-[10px] leading-relaxed text-gray-500 dark:text-neutral-400">
+              “{["Starting is the hardest part. Just check off one tiny 1-minute step of a habit to start today's momentum. No pressure!", 
+                 "Stuck on a hill? Pick the easiest habit first. Small actions dissolve procrastination patterns.", 
+                 "Your value is not defined by task checkboxes. If you only manage a fraction of a habit, that's still progress.", 
+                 "Energy follows action. Or sometimes, energy needs rest. Choose self-care when you need to recharge."][new Date().getDate() % 4]}”
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* TODAY Title Row, Filter View, & Add Habit Button */}
       <div className="flex items-center justify-between pt-2 select-none">
         <div className="flex items-center gap-3">

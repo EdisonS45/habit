@@ -170,14 +170,16 @@ export const AnalyticsView: React.FC = () => {
               </h4>
               <div className="w-full h-52">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={categoryAnalytics} layout="vertical" margin={{ left: -15, right: 10, top: 0, bottom: 0 }}>
+                  <BarChart data={categoryAnalytics} layout="vertical" margin={{ left: 10, right: 15, top: 0, bottom: 0 }}>
                     <XAxis type="number" hide domain={[0, 100]} />
                     <YAxis
                       dataKey="name"
                       type="category"
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: "#888888", fontSize: 11, fontWeight: 700 }}
+                      width={90}
+                      tick={{ fill: "#888888", fontSize: 11, fontWeight: 700, textAnchor: "end" }}
+                      className="capitalize"
                     />
                     <Tooltip
                       cursor={{ fill: "rgba(0,0,0,0.02)" }}
