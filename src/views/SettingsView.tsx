@@ -5,7 +5,7 @@ import { BottomSheet } from "../components/ui/BottomSheet";
 import { HabitForm } from "../components/habits/HabitForm";
 import { format } from "date-fns";
 import { Trash2, Edit2, Upload, Download, RotateCcw, Check, Sparkles, User, Palette, FolderGit2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ACCENT_OPTIONS = [
   "#7C9EFF", // default periwinkle
@@ -40,6 +40,9 @@ export const SettingsView: React.FC = () => {
 
   const [userNameEdit, setUserNameEdit] = useState(settings.userName);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  
+  // 2-phase ADHD-aware Reset Everything state: 0 = closed, 1 = check overview, 2 = final verification trigger
+  const [resetEverythingStep, setResetEverythingStep] = useState<0 | 1 | 2>(0);
 
   // Profile Save Action with validation and Auto-saving hints
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -144,15 +147,9 @@ export const SettingsView: React.FC = () => {
     e.target.value = "";
   };
 
-  const handleWipeData = () => {
-    const check1 = confirm("WARNING: You are about to wipe your database. This will destroy all logs, tracked habits, and onboarding configuration keys. This action cannot be undone. Clear all data?");
-    if (check1) {
-      const check2 = confirm("Double confirmation required. Wipe ALL user data now?");
-      if (check2) {
-        wipeDatabase();
-        alert("CraftedByYours database reset successfully.");
-      }
-    }
+  const executeFinalReset = () => {
+    wipeDatabase();
+    setResetEverythingStep(0);
   };
 
   const pageVariants = {
@@ -421,11 +418,11 @@ export const SettingsView: React.FC = () => {
 
           {/* Hard Reset database option */}
           <button
-            onClick={handleWipeData}
+            onClick={() => setResetEverythingStep(1)}
             className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border border-red-200 dark:border-red-950/20 bg-rose-500/10 hover:bg-rose-500/20 text-red-500 transition-all cursor-pointer shadow-3xs hover:scale-[1.01] active:scale-95"
           >
             <RotateCcw size={13} />
-            <span>Wipe Local Database</span>
+            <span>Reset Everything</span>
           </button>
         </div>
       </div>
@@ -457,6 +454,120 @@ export const SettingsView: React.FC = () => {
           />
         )}
       </BottomSheet>
+
+      {/* 2-Phase ADHD-friendly Reset Experience Modal */}
+      <AnimatePresence>
+        {resetEverythingStep > 0 && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden select-none">
+            {/* Dark blur overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.65 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setResetEverythingStep(0)}
+              className="absolute inset-0 bg-black/45 backdrop-blur-xs z-50"
+            />
+
+            {/* Modal Body Container */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="relative bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl z-55 text-center space-y-5"
+            >
+              {resetEverythingStep === 1 ? (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
+                    <RotateCcw size={22} className="animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-black text-gray-900 dark:text-neutral-50 tracking-tight">
+                      Psychological Fresh Start?
+                    </h3>
+                    <p className="text-xs text-secondary leading-relaxed">
+                      We understand. ADHD minds thrive on clearing off legacy system friction and starting clean. This action resets your entire workspace.
+                    </p>
+                  </div>
+
+                  {/* Highlight checklist of cleared points */}
+                  <div className="bg-gray-50 dark:bg-neutral-850 p-3.5 rounded-2xl text-left border border-gray-150 dark:border-neutral-800 text-xs space-y-1.5 font-semibold text-gray-700 dark:text-neutral-300">
+                    <span className="block text-[9px] font-extrabold uppercase tracking-widest text-gray-400 dark:text-neutral-500 mb-1">THIS ACTION CLEARS:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-500 shrink-0">✕</span>
+                      <span>All habits and directory registry</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-500 shrink-0">✕</span>
+                      <span>Your historic check-in calendar logs</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-500 shrink-0">✕</span>
+                      <span>Current streaks of {habits.length} habits</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-500 shrink-0">✕</span>
+                      <span>Username preferences and colors</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] font-bold text-red-505 dark:text-red-400 leading-normal bg-red-500/5 py-2 px-3 rounded-xl border border-red-500/10">
+                    ⚠️ This permanently clears all local progress and cannot be undone.
+                  </p>
+
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setResetEverythingStep(0)}
+                      className="flex-1 py-3 px-4 border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-850 text-gray-600 dark:text-neutral-300 font-extrabold rounded-xl transition-all cursor-pointer text-[10px] uppercase tracking-wider"
+                    >
+                      Keep Progress
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResetEverythingStep(2)}
+                      className="flex-1 py-3 px-4 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-xl transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-xs"
+                    >
+                      Next Step
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-red-650 dark:bg-red-605 text-white flex items-center justify-center mx-auto shadow-md">
+                    <RotateCcw size={22} className="animate-spin" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-black text-gray-900 dark:text-neutral-50 tracking-tight">
+                      Double Confirmation Check
+                    </h3>
+                    <p className="text-xs text-secondary leading-relaxed">
+                      This is the absolute final checkpoint. Your database will be completely wiped of all records, re-triggering the clean state. Are you absolutely ready?
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setResetEverythingStep(1)}
+                      className="flex-1 py-3 px-4 border border-gray-150 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-850 text-gray-600 dark:text-neutral-350 font-extrabold rounded-xl transition-all cursor-pointer text-[10px] uppercase tracking-wider"
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={executeFinalReset}
+                      className="flex-1 py-3 px-4 bg-red-650 hover:bg-red-700 text-white font-extrabold rounded-xl transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-md hover:scale-[1.01] active:scale-95 duration-150"
+                    >
+                      Wipe Slate Clean ✨
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

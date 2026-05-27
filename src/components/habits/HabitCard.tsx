@@ -1,11 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Habit } from "../../types";
 import { useHabitStore } from "../../context/HabitContext";
-import { Flame, Calendar, MoreVertical } from "lucide-react";
+import { Flame, MoreVertical } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { format, startOfWeek, addDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { CircularProgress } from "../ui/CircularProgress";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { BottomSheet } from "../ui/BottomSheet";
 import { HabitForm } from "./HabitForm";
@@ -14,6 +13,32 @@ interface HabitCardProps {
   habit: Habit;
   dateStr: string; // The specific date YYYY-MM-DD
 }
+
+const hexToRgba = (hex: string, alpha: number) => {
+  if (!hex || !hex.startsWith("#")) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const getHabitSubtitle = (h: Habit) => {
+  const nameLower = h.name.toLowerCase();
+  if (nameLower.includes("water") || nameLower.includes("drink")) return "Stay hydrated. Feel better.";
+  if (nameLower.includes("workout") || nameLower.includes("walk") || nameLower.includes("gym") || nameLower.includes("stretch")) return "Move your body. Clear your mind.";
+  if (nameLower.includes("read") || nameLower.includes("book") || nameLower.includes("study") || nameLower.includes("learn")) return "Feed your mind. Grow daily.";
+  if (nameLower.includes("meditation") || nameLower.includes("pause") || nameLower.includes("meditate") || nameLower.includes("breathe")) return "Pause and breathe. Find stillness.";
+  if (nameLower.includes("todo") || nameLower.includes("objectives") || nameLower.includes("review") || nameLower.includes("plan")) return "Structure your focus. Take small steps.";
+  
+  switch (h.category) {
+    case "health": return "Nourish your well-being, step by step.";
+    case "fitness": return "Energize and move at your own pace.";
+    case "study": return "Cultivate curiosity and knowledge.";
+    case "mindfulness": return "Pause, breathe, and rest your mind.";
+    case "productivity": return "Simplify the day, reduce the load.";
+    default: return "Track your routine and grow.";
+  }
+};
 
 export const HabitCard: React.FC<HabitCardProps> = ({ habit, dateStr }) => {
   const { toggleLog, isLogged, updateHabit, deleteHabit, logs } = useHabitStore();
@@ -61,7 +86,6 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, dateStr }) => {
   }
 
   const activeColor = habit.color;
-  const goalPercent = Math.min(100, Math.round((weeklyCompletions / habit.goalDaysPerWeek) * 100));
 
   const handleToggleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -89,10 +113,8 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, dateStr }) => {
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Only detect primary mouse/touch pointer
     if (e.button !== 0 && e.nativeEvent instanceof MouseEvent) return;
 
-    // Trigger context menu after 500ms holds
     const x = e.clientX;
     const y = e.clientY;
     pressTimer.current = setTimeout(() => {
@@ -133,50 +155,32 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, dateStr }) => {
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{
-          borderLeftColor: activeColor,
-          backgroundColor: completed ? `${activeColor}0F` : undefined, // ~6% color tint
-        }}
-        className={`habit-card flex items-center justify-between py-3 px-4 border-l-[5px] transition-all select-none hover:shadow-xs relative h-[74px] overflow-hidden ${
-          completed ? "opacity-80 border-opacity-70" : ""
+        className={`flex flex-col md:flex-row items-start md:items-center justify-between p-5 md:p-6 rounded-[28px] border transition-all select-none relative gap-4 ${
+          completed 
+            ? "border-gray-150/60 dark:border-neutral-850/60 bg-[#FAF9F6]/40 dark:bg-neutral-955/20 opacity-90 shadow-none animate-fade-in" 
+            : "border-gray-100 dark:border-neutral-850 bg-white dark:bg-[#161616] hover:bg-gray-50/20 dark:hover:bg-neutral-850/20 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.025)]"
         }`}
       >
-        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-          {/* Circular checkbox with spring animation */}
-          <div className="relative shrink-0 select-none">
-            <motion.button
-              type="button"
-              id={`checkbox-${habit.id}`}
-              onClick={handleToggleClick}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.85 }}
-              animate={{
-                scale: completed ? [0.85, 1.15, 1] : 1,
-              }}
-              transition={{
-                scale: { duration: 0.25, ease: "easeOut" },
-              }}
-              style={{
-                borderColor: completed ? activeColor : undefined,
-                backgroundColor: completed ? activeColor : "transparent",
-              }}
-              className="flex items-center justify-center w-7 h-7 rounded-full cursor-pointer shrink-0 transition-colors border-2 border-gray-300 dark:border-neutral-700"
-            >
-              {completed && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="shrink-0 text-white leading-none">
-                  <motion.path
-                    d="M5 13l4 4L19 7"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
-                  />
-                </svg>
-              )}
-            </motion.button>
+        {/* Subtle, Discrete Settings Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuPos({ x: e.clientX, y: e.clientY });
+            setMenuOpen(true);
+          }}
+          id={`toggle-menu-${habit.id}`}
+          className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800/85 rounded-full text-gray-300 hover:text-gray-550 dark:text-neutral-600 dark:hover:text-neutral-450 cursor-pointer transition-colors"
+        >
+          <MoreVertical size={13} />
+        </button>
+
+        {/* Left Section: Emoji Bubble and Text context */}
+        <div className="flex items-center gap-4 flex-1 min-w-0 pr-6">
+          <div 
+            style={{ backgroundColor: hexToRgba(habit.color, 0.12) }}
+            className="w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-3xs relative"
+          >
+            <span className="text-2xl shrink-0 select-none">{habit.emoji}</span>
 
             {/* Microinteraction particles burst */}
             {particles.map((p) => {
@@ -195,67 +199,87 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, dateStr }) => {
             })}
           </div>
 
-          {/* Text Content */}
-          <div className="flex-1 min-w-0 leading-tight">
-            <div className="flex items-center gap-2">
-              <span className="text-lg shrink-0 select-none">{habit.emoji}</span>
-              <span
-                className={`text-sm font-bold truncate ${
-                  completed
-                    ? "text-gray-400 dark:text-neutral-500 line-through"
-                    : "text-gray-800 dark:text-neutral-100 font-extrabold"
-                }`}
-              >
-                {habit.name}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-2.5 mt-1 select-none">
-              <Badge category={habit.category} />
-              
-              <span className="inline-flex items-center text-[10px] font-extrabold text-gray-400 dark:text-neutral-500 font-mono tracking-wide">
-                <Calendar size={11} className="mr-1" />
-                {weeklyCompletions}/{habit.goalDaysPerWeek} Target
-              </span>
-            </div>
+          <div className="flex-1 min-w-0 text-left">
+            <h4 
+              className={`text-sm md:text-base font-black tracking-tight transition-all duration-150 ${
+                completed
+                  ? "text-gray-400 dark:text-neutral-500 line-through font-semibold"
+                  : "text-gray-900 dark:text-neutral-50"
+              }`}
+            >
+              {habit.name}
+            </h4>
+            <p className="text-xs font-semibold text-gray-400 dark:text-neutral-500 mt-1 leading-normal">
+              {getHabitSubtitle(habit)}
+            </p>
+
+            {/* Streak Flag below subtitle */}
+            {streak > 0 && (
+              <div className="flex items-center gap-1 mt-2.5 px-2.5 py-0.5 bg-[#FFF9E6]/80 dark:bg-amber-400/5 border border-[#FFEBAA]/50 dark:border-amber-400/10 text-amber-600 dark:text-amber-400 rounded-full w-fit max-w-full select-none">
+                <span className="text-[10px]">🔥</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-widest">{streak} day streak</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Streaks Flag & Circular goal indicator */}
-        <div className="flex items-center gap-2.5 shrink-0 select-none">
-          {streak > 0 && (
-            <motion.div
-              id={`streak-${habit.id}`}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ type: "spring", stiffness: 350, damping: 15 }}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-orange-500 border border-orange-100 dark:border-orange-500/20 shadow-3xs font-black text-xs h-8"
-              title={`${streak} day streak`}
+        {/* Middle Section: Progress Dots with subtle look */}
+        <div className="flex flex-col items-center md:items-end md:mr-4 shrink-0 select-none w-full md:w-auto mt-2 md:mt-0 gap-1">
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const isFilled = i < weeklyCompletions;
+              return (
+                <div
+                  key={i}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    isFilled ? "opacity-100" : "bg-gray-100 dark:bg-neutral-800"
+                  }`}
+                  style={{
+                    backgroundColor: isFilled ? habit.color : undefined,
+                    border: !isFilled ? "1px solid rgba(0,0,0,0.04)" : undefined,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <span className="text-[10px] font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest leading-none mt-1">
+            {weeklyCompletions} / {habit.goalDaysPerWeek} target
+          </span>
+        </div>
+
+        {/* Right Section: Elegant Action Button with stable dimensions */}
+        <div className="shrink-0 w-full md:w-auto select-none flex justify-center md:justify-end mt-2 md:mt-0">
+          {completed ? (
+            <button
+              onClick={handleToggleClick}
+              className="w-full md:w-[136px] h-10 rounded-full bg-[#EBF9F1] dark:bg-[#122A1F] text-[#25824F] dark:text-[#4CD083] border border-[#BCECD2] dark:border-[#4CD083]/10 font-black text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-3xs transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
             >
-              <Flame size={12} fill="currentColor" />
-              <span className="font-mono text-[10px]">{streak}d</span>
-            </motion.div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              <span>Complete</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleToggleClick}
+              className="w-full md:w-[136px] h-10 rounded-full bg-white dark:bg-neutral-900 border font-black text-xs tracking-widest uppercase flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+              style={{
+                color: habit.color,
+                borderColor: hexToRgba(habit.color, 0.25),
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = hexToRgba(habit.color, 0.05);
+                e.currentTarget.style.borderColor = hexToRgba(habit.color, 0.4);
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.borderColor = hexToRgba(habit.color, 0.25);
+              }}
+            >
+              <span className="w-2.5 h-2.5 rounded-full border-2 shrink-0 transition-transform duration-200 animate-fade-in" style={{ borderColor: habit.color }} />
+              <span>Mark Done</span>
+            </button>
           )}
-
-          <CircularProgress
-            percentage={goalPercent}
-            size={36}
-            strokeWidth={3}
-            color={activeColor}
-            showText={true}
-          />
-
-          {/* Triple-Dot Button to trigger manual menus */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuPos({ x: e.clientX, y: e.clientY });
-              setMenuOpen(true);
-            }}
-            id={`toggle-menu-${habit.id}`}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg text-gray-400 dark:text-neutral-500 hover:text-gray-700 dark:hover:text-neutral-200 cursor-pointer"
-          >
-            <MoreVertical size={14} />
-          </button>
         </div>
       </motion.div>
 

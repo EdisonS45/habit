@@ -29,6 +29,7 @@ export interface HabitStoreContextType {
   activeView: string;
   setActiveView: (view: string) => void;
   addHabit: (habit: Omit<Habit, "id" | "createdAt" | "isActive">) => void;
+  addHabits: (habits: Omit<Habit, "id" | "createdAt" | "isActive">[]) => void;
   updateHabit: (id: string, updates: Partial<Omit<Habit, "id">>) => void;
   deleteHabit: (id: string) => void;
   toggleLog: (habitId: string, date: string) => void;

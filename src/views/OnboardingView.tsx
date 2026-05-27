@@ -24,7 +24,7 @@ const STARTER_HABITS_POOL: Record<
 };
 
 export const OnboardingView: React.FC = () => {
-  const { updateSettings, addHabit, setActiveView } = useHabitStore();
+  const { updateSettings, addHabits, setActiveView } = useHabitStore();
   
   const [step, setStep] = useState<number>(1);
   const [userName, setUserName] = useState<string>("");
@@ -70,18 +70,20 @@ export const OnboardingView: React.FC = () => {
   };
 
   const handleOnboardingComplete = () => {
-    // 1. Create chosen starter habits
-    recommendedStarters.forEach((starter) => {
-      if (selectedStarters[starter.name]) {
-        addHabit({
-          name: starter.name,
-          category: starter.category,
-          color: starter.color,
-          emoji: starter.emoji,
-          goalDaysPerWeek: starter.goalDaysPerWeek,
-        });
-      }
-    });
+    // 1. Create chosen starter habits in an atomic batch
+    const starterHabitsList = recommendedStarters
+      .filter((starter) => selectedStarters[starter.name])
+      .map((starter) => ({
+        name: starter.name,
+        category: starter.category,
+        color: starter.color,
+        emoji: starter.emoji,
+        goalDaysPerWeek: starter.goalDaysPerWeek,
+      }));
+
+    if (starterHabitsList.length > 0) {
+      addHabits(starterHabitsList);
+    }
 
     // 2. Persist configurations
     updateSettings({

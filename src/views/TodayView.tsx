@@ -2,14 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useHabitStore } from "../context/HabitContext";
 import { format, addDays } from "date-fns";
 import { HabitCard } from "../components/habits/HabitCard";
-import { BottomSheet } from "../components/ui/BottomSheet";
-import { HabitForm } from "../components/habits/HabitForm";
-import { ProgressBar } from "../components/ui/ProgressBar";
-import { Plus, ListFilter, ChevronRight, ChevronDown, RotateCcw, AlertCircle } from "lucide-react";
+import { Flame, Sparkles, ChevronRight, RotateCcw, AlertCircle, Plus } from "lucide-react";
 import { Category, Habit } from "../types";
-import { CATEGORY_STYLES } from "../components/ui/Badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { StreakCelebration } from "../components/ui/StreakCelebration";
+import { CircularProgress } from "../components/ui/CircularProgress";
+import { BottomSheet } from "../components/ui/BottomSheet";
+import { HabitForm } from "../components/habits/HabitForm";
 
 export const TodayView: React.FC = () => {
   const {
@@ -17,17 +16,28 @@ export const TodayView: React.FC = () => {
     logs,
     settings,
     celebrated,
-    addHabit,
+    toggleLog,
     lastDeleted,
     restoreLastDeleted,
     clearLastDeleted,
     celebrateMilestone,
+    addHabit,
   } = useHabitStore();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [groupByCategory, setGroupByCategory] = useState(true);
-  const [collapsedCats, setCollapsedCats] = useState<Set<Category>>(new Set());
   const [showUndoToast, setShowUndoToast] = useState(false);
+  const [viewMode, setViewMode] = useState<"grouped" | "flat">("flat");
+
+  const getCategoryColor = (cat: Category) => {
+    switch (cat) {
+      case "health": return "#10B981"; // emerald
+      case "fitness": return "#EF4444"; // red
+      case "study": return "#3B82F6"; // blue
+      case "mindfulness": return "#8B5CF6"; // violet
+      case "productivity": return "#F59E0B"; // amber
+      default: return "#9CA3AF";
+    }
+  };
 
   // Active milestone celebration trigger state
   const [activeCel, setActiveCel] = useState<{ habitName: string; streakCount: number } | null>(null);
@@ -43,14 +53,54 @@ export const TodayView: React.FC = () => {
   const completedCount = activeHabits.filter((h) => todayLogs.includes(h.id)).length;
   const actualPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Time-aware greetings
-  const getGreeting = () => {
+  // Clean, fast, incredibly calm greeting text
+  const getGreetingText = () => {
     const hours = new Date().getHours();
-    if (hours >= 5 && hours < 12) return "Good morning";
-    if (hours >= 12 && hours < 17) return "Good afternoon";
-    if (hours >= 17 && hours < 21) return "Good evening";
-    return "Good night";
+    const name = settings.userName?.trim() || "Friend";
+    if (hours >= 5 && hours < 12) return `Good morning, ${name}`;
+    if (hours >= 12 && hours < 17) return `Ready for today, ${name}?`;
+    if (hours >= 17 && hours < 21) return `Good evening, ${name}`;
+    return `Let’s begin, ${name}`;
   };
+
+  // Find next up incomplete habit
+  const nextUpHabit = activeHabits.find((h) => !todayLogs.includes(h.id));
+
+  // Determine maximum active habit streak
+  const getMaximumActiveStreak = (): number => {
+    let max = 0;
+    activeHabits.forEach((h) => {
+      let count = 0;
+      let checkDate = new Date();
+      const todayKey = format(checkDate, "yyyy-MM-dd");
+      if (!logs[todayKey]?.includes(h.id)) {
+        checkDate = addDays(checkDate, -1);
+      }
+      while (true) {
+        const key = format(checkDate, "yyyy-MM-dd");
+        if (logs[key]?.includes(h.id)) {
+          count++;
+          checkDate = addDays(checkDate, -1);
+        } else {
+          break;
+        }
+      }
+      if (count > max) max = count;
+    });
+    return max;
+  };
+
+  const activeMaxStreak = getMaximumActiveStreak();
+
+  // Get dynamic focus status pace
+  const getPaceText = () => {
+    if (totalCount === 0) return "No habits";
+    if (actualPercent === 100) return "Done for today!";
+    if (actualPercent >= 66) return "Fluid pace";
+    if (actualPercent >= 33) return "Balanced pace";
+    return "Calm pace";
+  };
+  const paceText = getPaceText();
 
   // 1. Monitor deletions and trigger 5-second fading Undo Toast
   useEffect(() => {
@@ -68,7 +118,6 @@ export const TodayView: React.FC = () => {
   useEffect(() => {
     const milestones = [3, 7, 14, 21, 30];
     for (const h of activeHabits) {
-      // Calculate current streak backward
       let streakCount = 0;
       let checkDate = new Date();
       const todayKey = format(checkDate, "yyyy-MM-dd");
@@ -96,31 +145,6 @@ export const TodayView: React.FC = () => {
     }
   }, [logs, habits, celebrated]);
 
-  const toggleCategoryCollapse = (category: Category) => {
-    setCollapsedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
-      return next;
-    });
-  };
-
-  const handleCreateHabitSubmit = (habitData: {
-    name: string;
-    category: Category;
-    color: string;
-    emoji: string;
-    goalDaysPerWeek: number;
-  }) => {
-    addHabit(habitData);
-    setIsAddOpen(false);
-  };
-
-  const categoriesList: Category[] = ["health", "fitness", "study", "mindfulness", "productivity"];
-
   const pageVariants = {
     initial: { opacity: 0, y: 8 },
     animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
@@ -140,176 +164,209 @@ export const TodayView: React.FC = () => {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="space-y-6 select-none relative pb-16"
+      className="space-y-6 select-none relative pb-10"
     >
-      {/* Time greet / Date Wordmark */}
-      <div id="today-view-header" className="flex justify-between items-start pt-2">
-        <div className="space-y-0.5">
-          <h2 className="text-xl font-black tracking-tight text-gray-900 dark:text-neutral-50 leading-tight">
-            {getGreeting()}, {settings.userName || "Friend"} 👋
+      {/* Premium Minimal Header with Overall Completion */}
+      <div id="today-view-header" className="flex items-center justify-between pt-1 select-none">
+        <div className="space-y-1">
+          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-neutral-55 leading-none">
+            {getGreetingText()}
           </h2>
-          <p className="text-[10px] font-extrabold text-[#7C9EFF] tracking-widest leading-none">
+          <p className="text-xs font-bold text-gray-400 dark:text-neutral-500 tracking-wide mt-1.5 uppercase">
             {uppercaseFormattedToday}
           </p>
         </div>
         
-        {/* wordmark top-right */}
-        <div className="text-right leading-none">
-          <span className="font-mono text-[9px] uppercase font-bold tracking-widest text-gray-400 dark:text-neutral-500 block">
-            CraftedByYours
-          </span>
-          <span className="text-[8px] font-bold text-gray-400/40 block mt-0.5">v1.1</span>
+        {totalCount > 0 && (
+          <div className="shrink-0 pr-1 select-none">
+            <CircularProgress 
+              percentage={actualPercent} 
+              size={44} 
+              strokeWidth={2.5} 
+              showText={true} 
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Redesigned Ambient Stats Pill Strip */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800 bg-white dark:bg-[#161616] border border-gray-100 dark:border-neutral-850/80 p-3.5 rounded-[24px] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.015)] text-center select-none">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+          <Flame size={13} className="text-amber-500 fill-amber-500" />
+          <span>{activeMaxStreak} day streak</span>
+        </div>
+        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+          <span className="text-xs">⚡</span>
+          <span>{totalCount - completedCount} habits left</span>
+        </div>
+        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+          <span className="text-xs">🌱</span>
+          <span>{paceText}</span>
         </div>
       </div>
 
-      {/* Daily achievements summary stats progress card */}
-      {totalCount > 0 && (
-        <div id="today-progress-card" className="progress-card p-5 space-y-3.5 relative">
-          <div className="flex justify-between items-center select-none">
-            <div className="space-y-0.5">
-              <span className="block text-[10px] uppercase tracking-widest font-extrabold text-[#AAAAAA]">
-                Daily Achievements
-              </span>
-              <span className="text-xs font-bold text-gray-600 dark:text-neutral-300">
-                {completedCount} of {totalCount} habits completed today
-              </span>
-            </div>
-            <div className="text-right">
-              <span 
-                className="text-xl font-black text-[#7C9EFF] font-mono"
-              >
-                {actualPercent}%
-              </span>
-            </div>
-          </div>
+      {/* TODAY Title Row, Filter View, & Add Habit Button */}
+      <div className="flex items-center justify-between pt-2 select-none">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-black tracking-widest text-[#888888] uppercase select-none">TODAY</span>
           
-          <ProgressBar value={actualPercent} color={settings.accentColor || "#7C9EFF"} height="h-2.5" />
-
-          {/* celebration sweep shown inline below the bar under 100% completions */}
-          {actualPercent === 100 && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-3.5 py-1.5 px-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold text-center inline-block"
-            >
-              🎉 Perfect day! You crushed it.
-            </motion.div>
+          {totalCount > 0 && (
+            <div className="flex items-center bg-gray-50 dark:bg-neutral-900 border border-gray-150/40 dark:border-neutral-850/80 p-0.5 rounded-full text-[10px] font-bold select-none shadow-3xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("flat")}
+                className={`px-2.5 py-0.5 rounded-full transition-all duration-150 cursor-pointer text-[9px] font-extrabold uppercase ${
+                  viewMode === "flat"
+                    ? "bg-white dark:bg-neutral-800 text-[#7C9EFF] dark:text-white shadow-3xs border border-gray-100 dark:border-neutral-750"
+                    : "text-gray-400 dark:text-neutral-500 hover:text-gray-600 dark:hover:text-neutral-300 border border-transparent"
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grouped")}
+                className={`px-2.5 py-0.5 rounded-full transition-all duration-150 cursor-pointer text-[9px] font-extrabold uppercase ${
+                  viewMode === "grouped"
+                    ? "bg-white dark:bg-neutral-800 text-[#7C9EFF] dark:text-white shadow-3xs border border-gray-100 dark:border-neutral-750"
+                    : "text-gray-400 dark:text-neutral-500 hover:text-gray-600 dark:hover:text-neutral-300 border border-transparent"
+                }`}
+              >
+                Categories
+              </button>
+            </div>
           )}
         </div>
+
+        <button
+          type="button"
+          id="today-add-habit-btn"
+          onClick={() => setIsAddOpen(true)}
+          className="flex items-center gap-1.5 px-4.5 py-1.5 rounded-full border border-gray-150 dark:border-neutral-800 bg-white dark:bg-[#161616] text-[11px] font-extrabold text-gray-700 dark:text-neutral-300 hover:bg-gray-50/50 dark:hover:bg-neutral-850 cursor-pointer transition-all hover:scale-[1.02]"
+        >
+          <Plus size={11} strokeWidth={3} />
+          <span>Add Habit</span>
+        </button>
+      </div>
+
+      {/* Perfect Day Accomplishment Ribbon (100% complete) */}
+      {actualPercent === 100 && totalCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98, y: 3 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="py-3 px-4.5 rounded-[22px] bg-emerald-500/[0.04] border border-emerald-500/10 text-emerald-800 dark:text-emerald-400 text-xs font-semibold flex items-center justify-between shadow-2xs select-none"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-sm select-none">✨</span>
+            <span className="font-bold">A completely quiet, satisfying day accomplished.</span>
+          </span>
+          <span className="font-mono text-[9px] uppercase font-bold tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+            Quiet Pride
+          </span>
+        </motion.div>
       )}
 
-      {/* Habit list sorting and filter controls */}
-      {totalCount > 0 && (
-        <div className="flex justify-between items-center pt-2">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
-            HABIT DIRECTORY
-          </h3>
-          <button
-            type="button"
-            id="toggle-group-btn"
-            onClick={() => setGroupByCategory(!groupByCategory)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-gray-150 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-gray-600 dark:text-neutral-400 hover:border-gray-300 cursor-pointer transition-colors"
-          >
-            <ListFilter size={11} />
-            <span>{groupByCategory ? "Show Single List" : "Group by Category"}</span>
-          </button>
-        </div>
-      )}
-
-      {/* Render Lists */}
+      {/* Main Directory List container */}
       {totalCount === 0 ? (
         <div 
           id="today-empty-state" 
-          className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl min-h-[350px] shadow-sm"
+          className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-850 rounded-[28px] min-h-[300px] shadow-sm select-none"
         >
           <motion.div
             animate={{ y: [0, -6, 0] }}
             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-            className="w-32 h-32 flex items-center justify-center text-[#7C9EFF]/20 mb-2"
+            className="w-24 h-24 flex items-center justify-center text-[#7C9EFF]/20 mb-2"
           >
-            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="5" y="2" width="14" height="20" rx="2" fill="currentColor" fillOpacity="0.08" />
               <path d="M5 6h2M5 11h2M5 16h2" strokeWidth="2" stroke="#9CA3AF" />
               <path d="M10 7h6M10 11h6" stroke="#9CA3AF" strokeOpacity="0.5" />
             </svg>
           </motion.div>
           
-          <h3 className="text-base font-black text-gray-900 dark:text-neutral-100 tracking-tight mb-1">
+          <h3 className="text-sm font-black text-gray-900 dark:text-neutral-100 tracking-tight mb-1">
             Rebuild your schedule
           </h3>
-          <p className="text-xs font-semibold text-secondary max-w-[260px] mb-6">
-            Add a habit using the FAB (+) button below. Focus on what brings value to your lifestyle.
+          <p className="text-xs font-semibold text-secondary max-w-[260px] mb-6 leading-normal">
+            Add a habit to focus on today. Keep it simple and stress-free.
           </p>
         </div>
-      ) : groupByCategory ? (
-        <div id="grouped-by-category-container" className="space-y-4">
-          {categoriesList.map((cat) => {
-            const catHabits = orderHabits(activeHabits.filter((h) => h.category === cat));
-            if (catHabits.length === 0) return null;
-            const isCollapsed = collapsedCats.has(cat);
-            const styleValues = CATEGORY_STYLES[cat];
-
-            return (
-              <div key={cat} className="space-y-2 border border-gray-150/50 dark:border-neutral-800/50 rounded-2xl p-3 bg-white/40 dark:bg-neutral-900/30">
-                {/* Category Header with Collapse action */}
-                <div
-                  onClick={() => toggleCategoryCollapse(cat)}
-                  className="flex justify-between items-center cursor-pointer select-none py-1 px-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${styleValues.dot}`} />
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">
-                      {cat} ({catHabits.length})
-                    </span>
-                  </div>
-                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                </div>
-
-                {/* Habit Cards Grid inside categories */}
-                <AnimatePresence initial={false}>
-                  {!isCollapsed && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-2 overflow-hidden"
-                    >
-                      {catHabits.map((habit) => (
-                        <HabitCard key={habit.id} habit={habit} dateStr={todayStr} />
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div id="single-flat-list-container" className="space-y-2">
+      ) : viewMode === "flat" ? (
+        <div id="single-flat-list-container" className="space-y-4">
           {orderHabits(activeHabits).map((habit) => (
             <HabitCard key={habit.id} habit={habit} dateStr={todayStr} />
           ))}
         </div>
+      ) : (
+        <div id="grouped-by-category-container" className="space-y-6">
+          {(["health", "fitness", "productivity", "mindfulness", "study"] as Category[]).map((cat) => {
+            const catHabits = orderHabits(activeHabits.filter((h) => h.category === cat));
+            if (catHabits.length === 0) return null;
+
+            return (
+              <div key={cat} className="space-y-3 pt-1">
+                {/* Minimal premium category subtitle header */}
+                <div className="flex items-center gap-2 pl-1 select-none animate-fade-in">
+                  <span 
+                    className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" 
+                    style={{ backgroundColor: getCategoryColor(cat) }} 
+                  />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-neutral-500">
+                    {cat}
+                  </h4>
+                  <div className="h-[1px] bg-gray-150/40 dark:bg-neutral-850/60 flex-1 ml-2 opacity-30" />
+                </div>
+                
+                {/* Category Habit Cards list */}
+                <div className="space-y-4">
+                  {catHabits.map((habit) => (
+                    <HabitCard key={habit.id} habit={habit} dateStr={todayStr} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {/* Floating Action Button (FAB) bottom sheet creator toggle */}
-      <button
-        type="button"
-        id="add-habit-fab"
-        onClick={() => setIsAddOpen(true)}
-        className="fixed bottom-safe shadow-lg right-6 w-14 h-14 bg-[#7C9EFF] hover:bg-[#688CEB] active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer z-40 group hover:rotate-90"
-      >
-        <Plus className="w-6 h-6 transform transition-transform duration-300" />
-      </button>
+      {/* Reduced-choice ADHD "Next Best Action" Banner */}
+      {nextUpHabit && (
+        <div 
+          id="next-action-strip" 
+          onClick={() => toggleLog(nextUpHabit.id, todayStr)}
+          className="bg-[#FCFAF4] hover:bg-[#FAF6EB] dark:bg-amber-400/[0.02] border border-[#F2EFE6] dark:border-amber-400/10 p-5 rounded-[28px] flex items-center justify-between gap-4 text-xs select-none shadow-[0_2px_18px_-4px_rgba(0,0,0,0.01)] transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] duration-150"
+        >
+          <div className="flex flex-col text-left min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-1">
+              <Sparkles size={11} className="animate-pulse" />
+              <span>NEXT BEST ACTION</span>
+            </span>
+            <span className="font-extrabold text-[15px] text-gray-950 dark:text-neutral-100 truncate mt-0.5">
+              Complete your {nextUpHabit.name}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full bg-white dark:bg-neutral-850 border border-gray-100 dark:border-neutral-805 flex items-center justify-center text-amber-500 shadow-md transform group-hover:translate-x-1 transition-transform cursor-pointer shrink-0"
+          >
+            <ChevronRight size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
 
-      {/* Bottom Sheet Creator Modal */}
+      {/* Add Habit BottomSheet overlay */}
       <BottomSheet
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        title="Form New Habit"
+        title="Create a Habit"
       >
-        <HabitForm onSubmit={handleCreateHabitSubmit} onCancel={() => setIsAddOpen(false)} />
+        <HabitForm
+          onSubmit={(habitData) => {
+            addHabit(habitData);
+            setIsAddOpen(false);
+          }}
+          onCancel={() => setIsAddOpen(false)}
+        />
       </BottomSheet>
 
       {/* Floating Streak celebration popover overlay modals */}
@@ -353,3 +410,4 @@ export const TodayView: React.FC = () => {
     </motion.div>
   );
 };
+

@@ -172,3 +172,46 @@
 .animate-scale-up {
   animation: scale-up 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* Minimalist Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E4E4E0;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2C2C2C;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D1D1CB;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3D3D3D;
+}
+
+/* For Firefox compatibility */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #E4E4E0 transparent;
+}
+
+.dark * {
+  scrollbar-color: #2C2C2C transparent;
+}
+
+/* Avoid user-select lag on buttons and inputs */
+button, input, [role="button"] {
+  touch-action: manipulation;
+}
+

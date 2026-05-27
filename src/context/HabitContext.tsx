@@ -102,9 +102,32 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isActive: true,
     };
 
-    const nextHabits = [...habits, habit];
-    setHabitsState(nextHabits);
-    localStorage.setItem("cby_habits", JSON.stringify(nextHabits));
+    setHabitsState((prev) => {
+      const nextHabits = [...prev, habit];
+      localStorage.setItem("cby_habits", JSON.stringify(nextHabits));
+      return nextHabits;
+    });
+  };
+
+  const addHabits = (newHabitsArr: Omit<Habit, "id" | "createdAt" | "isActive">[]) => {
+    const created = newHabitsArr.map((newHabit) => {
+      const uuid = typeof crypto !== "undefined" && crypto.randomUUID 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      return {
+        ...newHabit,
+        id: uuid,
+        createdAt: new Date().toISOString(),
+        isActive: true,
+      } as Habit;
+    });
+
+    setHabitsState((prev) => {
+      const nextHabits = [...prev, ...created];
+      localStorage.setItem("cby_habits", JSON.stringify(nextHabits));
+      return nextHabits;
+    });
   };
 
   const updateHabit = (id: string, updates: Partial<Omit<Habit, "id">>) => {
@@ -273,6 +296,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeView,
         setActiveView,
         addHabit,
+        addHabits,
         updateHabit,
         deleteHabit,
         toggleLog,
