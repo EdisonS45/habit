@@ -65,6 +65,19 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {};
   });
 
+  const [skips, setSkipsState] = useState<LogMap>(() => {
+    try {
+      const raw = localStorage.getItem("cby_skips");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+    } catch (e) {
+      console.error("Failed to parse cby_skips from localStorage", e);
+    }
+    return {};
+  });
+
   const [celebrated, setCelebratedState] = useState<Record<string, boolean>>(() => {
     try {
       const raw = localStorage.getItem("cby_celebrated");
@@ -81,14 +94,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Undo facility backing
   const [lastDeleted, setLastDeleted] = useState<{ habit: Habit; logs: Record<string, string[]> } | null>(null);
 
-  // Apply dark mode theme class initially and when settings theme changes
+  // Ensure HTML element does not have the dark class
   useEffect(() => {
-    if (settings.theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [settings.theme]);
+    document.documentElement.classList.remove("dark");
+  }, []);
 
   const addHabit = (newHabit: Omit<Habit, "id" | "createdAt" | "isActive">) => {
     const uuid = typeof crypto !== "undefined" && crypto.randomUUID 
@@ -209,9 +218,23 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const toggleLog = (habitId: string, date: string) => {
     const current = logs[date] ?? [];
-    const next = current.includes(habitId)
-      ? current.filter((id) => id !== habitId)
-      : [...current, habitId];
+    const isAlreadyLogged = current.includes(habitId);
+    
+    let next;
+    if (isAlreadyLogged) {
+      next = current.filter((id) => id !== habitId);
+    } else {
+      next = [...current, habitId];
+      // remove from skips if present
+      if (skips[date]?.includes(habitId)) {
+        const nextSkips = (skips[date] ?? []).filter((id) => id !== habitId);
+        setSkipsState((prev) => {
+          const updatedSkips = { ...prev, [date]: nextSkips };
+          localStorage.setItem("cby_skips", JSON.stringify(updatedSkips));
+          return updatedSkips;
+        });
+      }
+    }
     
     const nextLogs = { ...logs, [date]: next };
     setLogsState(nextLogs);
@@ -221,6 +244,36 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isLogged = (habitId: string, date: string): boolean => {
     const dayLogs = logs[date];
     return Array.isArray(dayLogs) && dayLogs.includes(habitId);
+  };
+
+  const toggleSkip = (habitId: string, date: string) => {
+    const currentSkips = skips[date] ?? [];
+    const isAlreadySkipped = currentSkips.includes(habitId);
+    
+    let nextSkips;
+    if (isAlreadySkipped) {
+      nextSkips = currentSkips.filter((id) => id !== habitId);
+    } else {
+      nextSkips = [...currentSkips, habitId];
+      // remove from done logs
+      if (logs[date]?.includes(habitId)) {
+        const nextLogs = (logs[date] ?? []).filter((id) => id !== habitId);
+        setLogsState((prev) => {
+          const updatedLogs = { ...prev, [date]: nextLogs };
+          localStorage.setItem("cby_logs", JSON.stringify(updatedLogs));
+          return updatedLogs;
+        });
+      }
+    }
+    
+    const updatedSkips = { ...skips, [date]: nextSkips };
+    setSkipsState(updatedSkips);
+    localStorage.setItem("cby_skips", JSON.stringify(updatedSkips));
+  };
+
+  const isSkipped = (habitId: string, date: string): boolean => {
+    const daySkips = skips[date];
+    return Array.isArray(daySkips) && daySkips.includes(habitId);
   };
 
   const updateSettings = (updates: Partial<Settings>) => {
@@ -240,6 +293,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return JSON.stringify({
       habits,
       logs,
+      skips,
       settings,
       celebrated,
       exportedAt: new Date().toISOString(),
@@ -254,16 +308,19 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const importedHabits = parsed.habits || [];
       const importedLogs = parsed.logs || {};
+      const importedSkips = parsed.skips || {};
       const importedSettings = parsed.settings || {};
       const importedCelebrated = parsed.celebrated || {};
 
       setHabitsState(importedHabits);
       setLogsState(importedLogs);
+      setSkipsState(importedSkips);
       setSettingsState({ ...DEFAULT_SETTINGS, ...importedSettings });
       setCelebratedState(importedCelebrated);
 
       localStorage.setItem("cby_habits", JSON.stringify(importedHabits));
       localStorage.setItem("cby_logs", JSON.stringify(importedLogs));
+      localStorage.setItem("cby_skips", JSON.stringify(importedSkips));
       localStorage.setItem("cby_settings", JSON.stringify({ ...DEFAULT_SETTINGS, ...importedSettings }));
       localStorage.setItem("cby_celebrated", JSON.stringify(importedCelebrated));
 
@@ -277,11 +334,13 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const wipeDatabase = () => {
     setHabitsState([]);
     setLogsState({});
+    setSkipsState({});
     setSettingsState(DEFAULT_SETTINGS);
     setCelebratedState({});
     setLastDeleted(null);
     localStorage.removeItem("cby_habits");
     localStorage.removeItem("cby_logs");
+    localStorage.removeItem("cby_skips");
     localStorage.removeItem("cby_settings");
     localStorage.removeItem("cby_celebrated");
   };
@@ -291,6 +350,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       value={{
         habits,
         logs,
+        skips,
         settings,
         celebrated,
         activeView,
@@ -301,6 +361,8 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteHabit,
         toggleLog,
         isLogged,
+        toggleSkip,
+        isSkipped,
         updateSettings,
         exportData,
         importData,

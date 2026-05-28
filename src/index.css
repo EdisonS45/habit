@@ -23,25 +23,12 @@
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
   }
   
-  .dark {
-    background-color: #111111;
-    color: #F5F5F5;
-  }
-
-  .dark body {
-    background-color: #111111;
-    color: #F5F5F5;
-  }
-
   /* Make headings match Bold Typography guidelines */
   h1 {
     font-size: 32px !important;
     font-weight: 700 !important;
     letter-spacing: -1px !important;
     color: #1A1A1A;
-  }
-  .dark h1 {
-    color: #F5F5F5;
   }
 
   h2 {
@@ -50,18 +37,12 @@
     letter-spacing: -0.75px !important;
     color: #1A1A1A;
   }
-  .dark h2 {
-    color: #F5F5F5;
-  }
 
   h3 {
     font-size: 18px !important;
     font-weight: 700 !important;
     letter-spacing: -0.5px !important;
     color: #1A1A1A;
-  }
-  .dark h3 {
-    color: #F5F5F5;
   }
 
   h4, h5 {
@@ -72,10 +53,6 @@
   /* Universal border color override for standard light mode components to match #F0EEE9 */
   .border, .border-t, .border-b, .border-l, .border-r {
     border-color: #F0EEE9;
-  }
-  
-  .dark .border, .dark .border-t, .dark .border-b, .dark .border-l, .dark .border-r {
-    border-color: #262626; /* neutral-850 */
   }
 }
 
@@ -92,15 +69,9 @@
   .text-secondary {
     color: #6B6B6B;
   }
-  .dark .text-secondary {
-    color: #A3A3A3;
-  }
   
   .text-primary {
     color: #1A1A1A;
-  }
-  .dark .text-primary {
-    color: #F5F5F5;
   }
 }
 
@@ -111,19 +82,11 @@
   border: 1px solid #F0EEE9 !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
 }
-.dark .progress-card {
-  background: #171717;
-  border: 1px solid #262626 !important;
-}
 
 .stats-card {
   background: #FFFFFF;
   border: 1px solid #F0EEE9 !important;
   border-radius: 24px !important;
-}
-.dark .stats-card {
-  background: #171717;
-  border: 1px solid #262626 !important;
 }
 
 .habit-card {
@@ -132,19 +95,11 @@
   border-radius: 16px !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.dark .habit-card {
-  background: #171717;
-  border: 1px solid #262626;
-}
 
 .summary-item {
   background: #FAFAF8;
   border-radius: 16px !important;
   border: 1px solid #F0EEE9 !important;
-}
-.dark .summary-item {
-  background: #1c1c1c;
-  border: 1px solid #262626 !important;
 }
 
 .badge {
@@ -188,26 +143,14 @@
   border-radius: 9999px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #2C2C2C;
-}
-
 ::-webkit-scrollbar-thumb:hover {
   background: #D1D1CB;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #3D3D3D;
 }
 
 /* For Firefox compatibility */
 * {
   scrollbar-width: thin;
   scrollbar-color: #E4E4E0 transparent;
-}
-
-.dark * {
-  scrollbar-color: #2C2C2C transparent;
 }
 
 /* Avoid user-select lag on buttons and inputs */

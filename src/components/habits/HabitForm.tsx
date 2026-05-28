@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Habit, Category } from "../../types";
 import { ChevronLeft, ChevronRight, Check, Plus } from "lucide-react";
 import { useHabitStore } from "../../context/HabitContext";
+import { Tooltip } from "../ui/Tooltip";
 
 interface HabitFormProps {
   initialHabit?: Habit;
@@ -11,6 +12,8 @@ interface HabitFormProps {
     color: string;
     emoji: string;
     goalDaysPerWeek: number;
+    reason?: string;
+    bestTime?: "morning" | "afternoon" | "evening" | "anytime";
   }) => void;
   onCancel?: () => void;
 }
@@ -31,6 +34,14 @@ const PASTEL_SWATCHES = [
   "#FF9ED2"  // Soft Pink
 ];
 
+const HABIT_NAME_SUGGESTIONS: Record<string, string[]> = {
+  health: ["Drink 2L Water", "Take Daily Vitamins", "8-Hour Sleep", "Brush & Floss Teeth", "Eat Fruit Daily"],
+  fitness: ["10-Min Full Body Stretch", "30-Min Cardio Walk", "Morning Yoga Flow", "20 Push-Ups", "Gym Strength Training"],
+  study: ["Read 10 Pages", "Practice Coding", "DuoLingo Lesson", "Learn 5 New Words", "Study 25 Mins (Pomodoro)"],
+  mindfulness: ["5-Min Silent Meditation", "3 Deep Breaths Prompt", "Write 3 Gratitudes", "Journal Active Thoughts", "Evening Wind-Down Calm"],
+  productivity: ["Plan Next Day's Actions", "Deep Work (No Alerts)", "Clean Workspace", "1-Hour Focus Block", "Clear Inbox Tasks"]
+};
+
 export const HabitForm: React.FC<HabitFormProps> = ({
   initialHabit,
   onSubmit,
@@ -42,7 +53,10 @@ export const HabitForm: React.FC<HabitFormProps> = ({
   const [color, setColor] = useState(initialHabit?.color || PASTEL_SWATCHES[0]);
   const [emoji, setEmoji] = useState(initialHabit?.emoji || CURATED_EMOJIS[0]);
   const [goalDaysPerWeek, setGoalDaysPerWeek] = useState(initialHabit?.goalDaysPerWeek || 5);
+  const [reason, setReason] = useState(initialHabit?.reason || "");
+  const [bestTime, setBestTime] = useState<"morning" | "afternoon" | "evening" | "anytime">(initialHabit?.bestTime || "anytime");
   const [error, setError] = useState("");
+  const [isNameFocused, setIsNameFocused] = useState(false);
 
   const [customInput, setCustomInput] = useState("");
   const [isAddingCustom, setIsAddingCustom] = useState(false);
@@ -82,6 +96,26 @@ export const HabitForm: React.FC<HabitFormProps> = ({
 
   const suggestion = getSubtleSuggestion();
 
+  const getTaglineSuggestionsOfCategory = (cat: string): string[] => {
+    switch (cat.toLowerCase().trim()) {
+      case "health":
+        return ["Small steps, big change", "Your body will thank you", "Build the foundation"];
+      case "mindfulness":
+        return ["Pause and breathe", "Find your stillness", "One moment at a time"];
+      case "study":
+        return ["Feed your mind", "Grow a little every day", "Knowledge compounds"];
+      case "fitness":
+        return ["Show up, that's enough", "Earn your energy", "Strong is built slowly"];
+      case "productivity":
+        return ["Fewer things, better focus", "Action expands energy", "One step at a time"];
+      default:
+        return ["Keep it simple", "Show up for yourself", "Tiny actions compound"];
+    }
+  };
+
+  const categorySuggestions = getTaglineSuggestionsOfCategory(category);
+  const showTaglineSuggestions = name.trim().length > 0 && (reason === "" || categorySuggestions.includes(reason));
+
   const handleGoalStep = (step: number) => {
     setGoalDaysPerWeek((prev) => Math.max(1, Math.min(7, prev + step)));
   };
@@ -99,6 +133,8 @@ export const HabitForm: React.FC<HabitFormProps> = ({
       color,
       emoji,
       goalDaysPerWeek,
+      reason: reason.trim() || undefined,
+      bestTime,
     });
   };
 
@@ -125,11 +161,37 @@ export const HabitForm: React.FC<HabitFormProps> = ({
             if (e.target.value.trim()) setError("");
           }}
           onKeyDown={handleKeyDown}
+          onFocus={() => setIsNameFocused(true)}
+          onBlur={() => setTimeout(() => setIsNameFocused(false), 200)}
           placeholder="e.g. Morning Protein Shake"
           className="w-full px-4 py-3 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-850 focus:bg-white dark:focus:bg-neutral-900 text-gray-900 dark:text-neutral-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C9EFF] transition-all text-xs font-bold"
           autoFocus
         />
         {error && <p className="text-red-500 text-[10px] font-bold">{error}</p>}
+
+        {/* Dynamic Habit Name Suggestions based on category tag */}
+        {isNameFocused && !name.trim() && (
+          <div className="pt-1.5 animate-scale-up space-y-1 select-none">
+            <span className="block text-[9px] font-extrabold uppercase tracking-widest text-[#7C9EFF] dark:text-[#9FB7FF]">
+              Inspiring {category} habits
+            </span>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {(HABIT_NAME_SUGGESTIONS[category.toLowerCase()] || ["Drink Water", "Simple Meditation", "Stretch Walk"]).map((sug) => (
+                <button
+                  key={sug}
+                  type="button"
+                  onMouseDown={() => {
+                    setName(sug);
+                    setError("");
+                  }}
+                  className="px-2.5 py-1.5 text-[10px] font-extrabold text-gray-600 dark:text-neutral-300 hover:text-[#7C9EFF] bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 hover:border-[#7C9EFF]/40 hover:bg-[#7C9EFF]/5 dark:hover:bg-[#7C9EFF]/10 rounded-xl transition-all cursor-pointer select-none"
+                >
+                  🌱 {sug}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Render Suggestion as lightweight badge */}
         {suggestion && category !== suggestion && (
@@ -147,6 +209,31 @@ export const HabitForm: React.FC<HabitFormProps> = ({
               <span>💡 Categorize under <span className="capitalize text-gray-800 dark:text-neutral-200 font-extrabold">{suggestion}</span> based on title?</span>
               <span className="font-extrabold text-[8px] px-1.5 py-0.5 rounded-md bg-[#7C9EFF] text-white uppercase tracking-wider">Apply Match</span>
             </button>
+          </div>
+        )}
+
+        {/* Dynamic Tagline Suggestions Pills */}
+        {showTaglineSuggestions && (
+          <div className="pt-2.5 space-y-1 select-none">
+            <span className="block text-[9px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
+              Suggested Taglines for {category}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {categorySuggestions.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setReason(tag)}
+                  className={`px-3 py-1.5 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${
+                    reason === tag
+                      ? "bg-amber-100/60 border-amber-300 text-amber-700"
+                      : "bg-white hover:bg-gray-50 border-gray-150 text-gray-600"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -231,6 +318,57 @@ export const HabitForm: React.FC<HabitFormProps> = ({
         </div>
       </div>
 
+      {/* Optional Habit Reason / Intent */}
+      <div className="space-y-1.5 animate-scale-up">
+        <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
+          My ADHD Motivation / Why this matters
+        </label>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={100}
+          placeholder="e.g. Helps me wind down at night"
+          className="w-full px-4 py-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-850 focus:bg-white dark:focus:bg-neutral-900 text-gray-900 dark:text-neutral-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7C9EFF] transition-all text-xs font-bold"
+        />
+        <span className="block text-[9px] text-[#A0A0A0] dark:text-neutral-500 font-medium pl-1 leading-normal">
+          Keep it short and tactile. Reminds your future brain why this routine is worth the start.
+        </span>
+      </div>
+
+      {/* Recommended Best Time of Day Badge Selection */}
+      <div className="space-y-2">
+        <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
+          Implementation Cue / Best Time of Day
+        </label>
+        <div className="grid grid-cols-4 gap-2 bg-gray-50 dark:bg-neutral-850 p-1.5 rounded-2xl border border-gray-150/60 dark:border-neutral-800/80">
+          {(["anytime", "morning", "afternoon", "evening"] as const).map((t) => {
+            const isSelected = bestTime === t;
+            let icon = "⚡";
+            if (t === "morning") icon = "🌅";
+            if (t === "afternoon") icon = "☀️";
+            if (t === "evening") icon = "🌙";
+            if (t === "anytime") icon = "🔋";
+
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setBestTime(t)}
+                className={`py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-[#7C9EFF] text-white shadow-3xs border border-[#7C9EFF]"
+                    : "bg-transparent text-[#7F7F7F] hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                }`}
+              >
+                <span className="text-sm">{icon}</span>
+                <span className="text-[8px] tracking-widest">{t}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Emoji Picker Grid - 4x5 structure */}
       <div className="space-y-1.5">
         <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#AAAAAA]">
@@ -281,10 +419,11 @@ export const HabitForm: React.FC<HabitFormProps> = ({
       {/* Goal Days Stepper */}
       <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-neutral-850 rounded-xl border border-gray-150 dark:border-neutral-800">
         <div className="space-y-0.5">
-          <span className="block text-xs font-extrabold text-gray-800 dark:text-neutral-100">
+          <span className="inline-flex items-center gap-1 text-xs font-extrabold text-gray-800 dark:text-neutral-100">
             Goal Consistency
+            <Tooltip content="Choose your ideal weekly milestone. It is a guide, not a strict limit. Adjust dynamically as your week ebbs and flows!" />
           </span>
-          <span className="text-[10px] text-secondary font-semibold">
+          <span className="text-[10px] text-secondary font-semibold block">
             How many days per week?
           </span>
         </div>

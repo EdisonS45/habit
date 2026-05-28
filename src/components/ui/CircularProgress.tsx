@@ -12,8 +12,8 @@ interface CircularProgressProps {
 
 export const CircularProgress: React.FC<CircularProgressProps> = ({
   percentage,
-  size = 120,
-  strokeWidth = 3,
+  size = 44,
+  strokeWidth = 1.6, // thinner elegant ring line
   color = "#7C9EFF",
   showText = true,
   label,
@@ -23,8 +23,8 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   const cleanPercentage = Math.min(100, Math.max(0, percentage));
   const strokeDashoffset = circumference - (cleanPercentage / 100) * circumference;
 
-  // Extremely clean typographic scaling for different circle sizes
-  const fontSize = size <= 45 ? "10px" : size <= 70 ? "13px" : "22px";
+  // Tiny elegant tracking typography
+  const fontSize = size <= 45 ? "10px" : size <= 70 ? "11px" : "18px";
   const gradId = `progress-grad-${color.replace("#", "")}`;
 
   return (
@@ -35,11 +35,11 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
       <svg width={size} height={size} className="rotate-[-90deg]">
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={color} />
-            <stop offset="100%" stopColor={color === "#7C9EFF" ? "#A5BCFF" : color} />
+            <stop offset="0%" stopColor={color} stopOpacity={0.95} />
+            <stop offset="100%" stopColor={color} stopOpacity={0.7} />
           </linearGradient>
         </defs>
-        {/* Track (background circle) */}
+        {/* Track (background circle) with very low-contrast design */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -47,7 +47,8 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="transparent"
-          className="text-gray-100/70 dark:text-neutral-850"
+          className="text-gray-150/60 dark:text-neutral-850"
+          style={{ opacity: 0.6 }}
         />
         {/* Progress Arc */}
         <motion.circle
@@ -59,7 +60,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset }}
-          transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
           strokeLinecap="round"
           fill="transparent"
         />
@@ -68,13 +69,13 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
       {showText && (
         <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
           <span
-            style={{ fontSize, fontVariantNumeric: "tabular-nums" }}
-            className="font-semibold text-gray-900 dark:text-neutral-50 tracking-tight"
+            style={{ fontSize }}
+            className="font-black text-gray-800 dark:text-neutral-200 tracking-tighter"
           >
             {Math.round(cleanPercentage)}%
           </span>
           {label && size > 60 && (
-            <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-neutral-500 font-semibold mt-1">
+            <span className="text-[8px] uppercase tracking-widest text-gray-400 dark:text-neutral-500 font-extrabold mt-1 scale-90">
               {label}
             </span>
           )}

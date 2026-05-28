@@ -9,6 +9,8 @@ export interface Habit {
   goalDaysPerWeek: number; // 1 to 7
   createdAt: string;    // ISO date string
   isActive: boolean;
+  reason?: string;
+  bestTime?: "morning" | "afternoon" | "evening" | "anytime";
 }
 
 export interface Settings {
@@ -26,6 +28,7 @@ export type LogMap = Record<string, string[]>; // "2026-05-26" -> ["habit-id-1",
 export interface HabitStoreContextType {
   habits: Habit[];
   logs: LogMap;
+  skips: LogMap;
   settings: Settings;
   celebrated: Record<string, boolean>;
   activeView: string;
@@ -36,6 +39,8 @@ export interface HabitStoreContextType {
   deleteHabit: (id: string) => void;
   toggleLog: (habitId: string, date: string) => void;
   isLogged: (habitId: string, date: string) => boolean;
+  toggleSkip: (habitId: string, date: string) => void;
+  isSkipped: (habitId: string, date: string) => boolean;
   updateSettings: (updates: Partial<Settings>) => void;
   exportData: () => string;
   importData: (jsonString: string) => boolean;

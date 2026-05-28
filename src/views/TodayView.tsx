@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useHabitStore } from "../context/HabitContext";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfWeek } from "date-fns";
 import { HabitCard } from "../components/habits/HabitCard";
 import { Flame, Sparkles, ChevronRight, RotateCcw, AlertCircle, Plus } from "lucide-react";
 import { Category, Habit } from "../types";
@@ -9,14 +9,44 @@ import { StreakCelebration } from "../components/ui/StreakCelebration";
 import { CircularProgress } from "../components/ui/CircularProgress";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { HabitForm } from "../components/habits/HabitForm";
+import { Tooltip } from "../components/ui/Tooltip";
+
+const INTENTION_PLACEHOLDERS = [
+  "...what matters most right now?",
+  "...the version of you who shows up anyway.",
+  "...one thing worth doing, even imperfectly.",
+  "...something small that moves you forward."
+];
+
+const INTENTION_SUGGESTIONS = [
+  "Peace of mind",
+  "Starting small",
+  "My physical health",
+  "Learning & growth",
+  "Focus & clarity",
+  "Self-compassion"
+];
+
+const getDailyPlaceholder = (dateStr: string): string => {
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash += dateStr.charCodeAt(i);
+  }
+  return INTENTION_PLACEHOLDERS[hash % INTENTION_PLACEHOLDERS.length];
+};
 
 export const TodayView: React.FC = () => {
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
   const {
     habits,
     logs,
+    skips,
     settings,
     celebrated,
     toggleLog,
+    toggleSkip,
+    isSkipped,
     lastDeleted,
     restoreLastDeleted,
     clearLastDeleted,
@@ -28,8 +58,81 @@ export const TodayView: React.FC = () => {
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("flat");
 
+  // Intention Line state (persisted per day)
+  const [intention, setIntention] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("cby_intention_data");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.date === todayStr) {
+          return parsed.text;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return "";
+  });
+
+  const [isEditingIntention, setIsEditingIntention] = useState(false);
+  const [tempIntention, setTempIntention] = useState("");
+
+  useEffect(() => {
+    setTempIntention(intention);
+  }, [intention]);
+
+  const saveIntention = (textVal: string) => {
+    const trimmed = textVal.trim();
+    setIntention(trimmed);
+    localStorage.setItem("cby_intention_data", JSON.stringify({ date: todayStr, text: trimmed }));
+    setIsEditingIntention(false);
+  };
+
+  // Sunday evening reflection state
+  const weekStartKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const [reflections, setReflections] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("cby_reflections");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const currentReflection = reflections[weekStartKey] || "";
+  const [tempReflection, setTempReflection] = useState(currentReflection);
+  const [isReflectionSaved, setIsReflectionSaved] = useState(!!currentReflection);
+
+  const saveReflection = () => {
+    const updated = { ...reflections, [weekStartKey]: tempReflection.trim() };
+    setReflections(updated);
+    localStorage.setItem("cby_reflections", JSON.stringify(updated));
+    setIsReflectionSaved(true);
+  };
+
+  const isSundayAfter5PM = () => {
+    const now = new Date();
+    const isSunday = now.getDay() === 0;
+    const isAfter5 = now.getHours() >= 17;
+    return isSunday && isAfter5;
+  };
+
+  const getThisWeeksCompletedCount = () => {
+    const mon = startOfWeek(new Date(), { weekStartsOn: 1 });
+    let count = 0;
+    const activeIds = activeHabits.map(h => h.id);
+    for (let i = 0; i < 7; i++) {
+      const checkDateStr = format(addDays(mon, i), "yyyy-MM-dd");
+      const dayLogs = logs[checkDateStr] || [];
+      const daySkips = skips[checkDateStr] || [];
+      count += dayLogs.filter((id) => activeIds.includes(id)).length;
+      count += daySkips.filter((id) => activeIds.includes(id)).length;
+    }
+    return count;
+  };
+
   const getCategoryColor = (cat: Category) => {
-    switch (cat) {
+    switch (cat.toLowerCase().trim()) {
       case "health": return "#10B981"; // emerald
       case "fitness": return "#EF4444"; // red
       case "study": return "#3B82F6"; // blue
@@ -42,7 +145,6 @@ export const TodayView: React.FC = () => {
   // Active milestone celebration trigger state
   const [activeCel, setActiveCel] = useState<{ habitName: string; streakCount: number } | null>(null);
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
   const uppercaseFormattedToday = format(new Date(), "EEEE, MMMM d").toUpperCase();
 
   // Get active habits
@@ -50,11 +152,16 @@ export const TodayView: React.FC = () => {
   const totalCount = activeHabits.length;
 
   const todayLogs = logs[todayStr] || [];
-  const completedCount = activeHabits.filter((h) => todayLogs.includes(h.id)).length;
+  const todaySkips = skips[todayStr] || [];
+  const completedCount = activeHabits.filter((h) => todayLogs.includes(h.id) || todaySkips.includes(h.id)).length;
   const actualPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Clean, fast, incredibly calm greeting text
   const getGreetingText = () => {
+    if (actualPercent === 100 && totalCount > 0) {
+      const name = settings.userName?.trim() || "Friend";
+      return `You did it today, ${name}! 🎉`;
+    }
     const hours = new Date().getHours();
     const name = settings.userName?.trim() || "Friend";
     if (hours >= 5 && hours < 12) return `Good morning, ${name}`;
@@ -63,8 +170,8 @@ export const TodayView: React.FC = () => {
     return `Let’s begin, ${name}`;
   };
 
-  // Find next up incomplete habit
-  const nextUpHabit = activeHabits.find((h) => !todayLogs.includes(h.id));
+  // Find next up incomplete habit (not completed and not skipped)
+  const nextUpHabit = activeHabits.find((h) => !todayLogs.includes(h.id) && !todaySkips.includes(h.id));
 
   // Determine maximum active habit streak
   const getMaximumActiveStreak = (): number => {
@@ -73,12 +180,12 @@ export const TodayView: React.FC = () => {
       let count = 0;
       let checkDate = new Date();
       const todayKey = format(checkDate, "yyyy-MM-dd");
-      if (!logs[todayKey]?.includes(h.id)) {
+      if (!logs[todayKey]?.includes(h.id) && !skips[todayKey]?.includes(h.id)) {
         checkDate = addDays(checkDate, -1);
       }
       while (true) {
         const key = format(checkDate, "yyyy-MM-dd");
-        if (logs[key]?.includes(h.id)) {
+        if (logs[key]?.includes(h.id) || skips[key]?.includes(h.id)) {
           count++;
           checkDate = addDays(checkDate, -1);
         } else {
@@ -121,12 +228,12 @@ export const TodayView: React.FC = () => {
       let streakCount = 0;
       let checkDate = new Date();
       const todayKey = format(checkDate, "yyyy-MM-dd");
-      if (!logs[todayKey]?.includes(h.id)) {
+      if (!logs[todayKey]?.includes(h.id) && !skips[todayKey]?.includes(h.id)) {
         checkDate = addDays(checkDate, -1);
       }
       while (true) {
         const key = format(checkDate, "yyyy-MM-dd");
-        if (logs[key]?.includes(h.id)) {
+        if (logs[key]?.includes(h.id) || skips[key]?.includes(h.id)) {
           streakCount++;
           checkDate = addDays(checkDate, -1);
         } else {
@@ -143,7 +250,7 @@ export const TodayView: React.FC = () => {
         }
       }
     }
-  }, [logs, habits, celebrated]);
+  }, [logs, skips, habits, celebrated]);
 
   const pageVariants = {
     initial: { opacity: 0, y: 8 },
@@ -151,10 +258,19 @@ export const TodayView: React.FC = () => {
     exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
   };
 
-  // Order habits list: unchecked on top, checked at the bottom
+  // Order habits list: unchecked on top, checked/skipped at the bottom; sorted by bestTime sequence
   const orderHabits = (list: Habit[]) => {
-    const unchecked = list.filter((h) => !todayLogs.includes(h.id));
-    const checked = list.filter((h) => todayLogs.includes(h.id));
+    const getTimeWeight = (bestTime?: string) => {
+      if (bestTime === "morning") return 0;
+      if (bestTime === "afternoon") return 1;
+      if (bestTime === "evening") return 2;
+      return 3; // anytime or undefined
+    };
+
+    const sortByTime = (a: Habit, b: Habit) => getTimeWeight(a.bestTime) - getTimeWeight(b.bestTime);
+
+    const unchecked = list.filter((h) => !todayLogs.includes(h.id) && !todaySkips.includes(h.id)).sort(sortByTime);
+    const checked = list.filter((h) => todayLogs.includes(h.id) || todaySkips.includes(h.id)).sort(sortByTime);
     return [...unchecked, ...checked];
   };
 
@@ -189,28 +305,181 @@ export const TodayView: React.FC = () => {
         )}
       </div>
 
-      {/* Redesigned Ambient Stats Pill Strip */}
-      <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800 bg-white dark:bg-[#161616] border border-gray-100 dark:border-neutral-850/80 p-3.5 rounded-[24px] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.015)] text-center select-none">
-        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+      {/* Mobile-only Ultra-sleek, clean row of stats */}
+      {totalCount > 0 && (
+        <div className="flex md:hidden items-center justify-between px-3.5 py-2.5 text-[11px] select-none bg-gray-50/50 border border-gray-150/50 rounded-2xl">
+          <div className="flex items-center gap-1 font-extrabold text-gray-600">
+            <Flame size={12} className="text-amber-500 fill-amber-500 shrink-0" />
+            <span>{activeMaxStreak}d streak</span>
+          </div>
+          <div className="h-3.5 w-[1px] bg-gray-200" />
+          <div className="flex items-center gap-1 font-extrabold text-gray-600">
+            <span>⚡</span>
+            <span>{totalCount - completedCount} left</span>
+          </div>
+          <div className="h-3.5 w-[1px] bg-gray-200" />
+          <div className="flex items-center gap-1 font-extrabold text-gray-600">
+            <span>🌱</span>
+            <span>{paceText}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Redesigned Ambient Stats Pill Strip (Desktop only) */}
+      <div className="hidden md:grid grid-cols-3 divide-x divide-gray-100 bg-white border border-gray-100 p-3.5 rounded-[24px] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.015)] text-center select-none">
+        <div className="flex items-center justify-center gap-1 text-xs font-extrabold text-gray-700">
           <Flame size={13} className="text-amber-500 fill-amber-500" />
           <span>{activeMaxStreak} day streak</span>
+          <Tooltip content="Your longest consecutive active run across your checklist habits. Keep showing up!" />
         </div>
-        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700">
           <span className="text-xs">⚡</span>
           <span>{totalCount - completedCount} habits left</span>
         </div>
-        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-neutral-300">
+        <div className="flex items-center justify-center gap-1 text-xs font-extrabold text-gray-700">
           <span className="text-xs">🌱</span>
           <span>{paceText}</span>
+          <Tooltip content="Pace indicates how smoothly you are easing into your checklist. Perfect for a steady ADHD layout." />
         </div>
       </div>
 
+      {/* "Today I'm showing up for ___" Journal prompt */}
+      <div className="pt-1.5 pb-0.5 text-center select-none space-y-2">
+        <div className="inline-flex flex-wrap items-center justify-center gap-1 text-xs text-gray-500 font-semibold tracking-wide">
+          <span>Today I'm showing up for</span>
+          {isEditingIntention ? (
+            <input
+              type="text"
+              value={tempIntention}
+              placeholder={getDailyPlaceholder(todayStr)}
+              onChange={(e) => setTempIntention(e.target.value)}
+              onBlur={() => saveIntention(tempIntention)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveIntention(tempIntention);
+                if (e.key === "Escape") setIsEditingIntention(false);
+              }}
+              maxLength={40}
+              className="px-2 py-0.5 text-xs font-black text-amber-600 border-b border-dashed border-amber-400 bg-transparent focus:outline-none w-56 text-center placeholder:text-amber-600/40 placeholder:italic"
+              autoFocus
+            />
+          ) : (
+            <span 
+              onClick={() => setIsEditingIntention(true)}
+              className="font-black text-amber-600 border-b border-dashed border-amber-300/60 hover:border-amber-500 cursor-pointer transition-colors px-1 py-0.5 rounded-sm hover:bg-amber-50/50"
+              title="Tap to change intention"
+            >
+              {intention || getDailyPlaceholder(todayStr)} ✨
+            </span>
+          )}
+        </div>
+
+        {isEditingIntention && (
+          <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1 max-w-sm mx-auto px-4 select-none animate-scale-up">
+            {INTENTION_SUGGESTIONS.map((sug) => (
+              <button
+                key={sug}
+                type="button"
+                onMouseDown={() => {
+                  setTempIntention(sug);
+                  saveIntention(sug);
+                }}
+                className="px-2.5 py-1 text-[10px] font-black text-amber-800/80 hover:text-amber-900 bg-[#FCFAF4] hover:bg-amber-100/50 border border-[#F2EFE6] hover:border-amber-300 rounded-full transition-all cursor-pointer select-none"
+              >
+                + {sug}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reduced-choice ADHD "Next Best Action" Slim nudge just below stats/greeting - Desktop only */}
+      {nextUpHabit && (
+        <motion.div 
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          id="next-action-strip" 
+          onClick={() => toggleLog(nextUpHabit.id, todayStr)}
+          className="hidden md:flex bg-amber-50/60 hover:bg-amber-100/50 border border-amber-200/45 px-4 py-1.5 rounded-full items-center justify-between gap-2 text-xs select-none shadow-3xs cursor-pointer transition-all hover:scale-[1.005] active:scale-[0.995]"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Sparkles size={11} className="text-amber-500 shrink-0 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 shrink-0">NEXT:</span>
+            <span className="font-extrabold text-gray-800 truncate text-[11px]">
+              Complete {nextUpHabit.name}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="text-[10px] font-black uppercase tracking-wider text-amber-600 font-sans cursor-pointer hover:underline flex items-center shrink-0"
+          >
+            <span>TAP TO LOG</span>
+            <ChevronRight size={10} strokeWidth={3.5} />
+          </button>
+        </motion.div>
+      )}
+
+      {/* Sunday Evening Weekly Reflection Card */}
+      {isSundayAfter5PM() && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#FCFAF4] border border-[#F2EFE6] p-4 md:p-5 rounded-[20px] md:rounded-[24px] space-y-2 md:space-y-3 shadow-xs text-left"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm select-none">🌅</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">
+              Sunday Evening Reflection
+            </span>
+          </div>
+          
+          {!isReflectionSaved ? (
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-850 leading-snug">
+                This week you completed {getThisWeeksCompletedCount()} habits. What made it easier?
+              </p>
+              <textarea
+                value={tempReflection}
+                onChange={(e) => setTempReflection(e.target.value)}
+                placeholder="e.g. Keeping triggers visible, starting small, giving myself grace..."
+                rows={2}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-gray-200 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={saveReflection}
+                  disabled={!tempReflection.trim()}
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-full text-[10px] font-extrabold uppercase tracking-wider cursor-pointer transition-colors"
+                >
+                  Save reflection
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1 py-1">
+              <p className="text-xs font-bold text-[#725206]">
+                ✨ Reflection saved. See you next week.
+              </p>
+              <p className="text-[10px] font-semibold italic text-gray-500">
+                "{currentReflection || tempReflection}"
+              </p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* ADHD support companion guidelines & notifications and Streak Freeze banners */}
+      {settings.streakFreezeActive && (
+        <div className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-50 border border-sky-150/40 text-sky-700 text-[10px] font-black uppercase tracking-wider select-none w-fit">
+          <span>❄️ Streak Protected Today</span>
+        </div>
+      )}
+
       {settings.streakFreezeActive && (
         <motion.div
           initial={{ opacity: 0, scale: 0.98, y: 3 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="p-4 rounded-3xl bg-sky-500/[0.04] border border-sky-450/20 text-sky-850 dark:text-sky-450 text-xs flex items-start gap-3 select-none"
+          className="hidden md:flex p-4 rounded-3xl bg-sky-500/[0.04] border border-sky-450/20 text-sky-850 dark:text-sky-450 text-xs items-start gap-3 select-none"
         >
           <span className="text-base select-none shrink-0">❄️</span>
           <div className="space-y-1 text-left">
@@ -228,7 +497,7 @@ export const TodayView: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.98, y: 3 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="p-4 rounded-[24px] bg-slate-50/80 dark:bg-neutral-900/40 border border-[#7C9EFF]/15 text-[#7C9EFF] text-xs flex items-start gap-3 select-none"
+          className="hidden md:flex p-4 rounded-[24px] bg-slate-50/80 dark:bg-neutral-900/40 border border-[#7C9EFF]/15 text-[#7C9EFF] text-xs items-start gap-3 select-none"
         >
           <span className="text-base select-none shrink-0">🧠</span>
           <div className="space-y-1 text-left">
@@ -244,6 +513,8 @@ export const TodayView: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+
 
       {/* TODAY Title Row, Filter View, & Add Habit Button */}
       <div className="flex items-center justify-between pt-2 select-none">
@@ -289,22 +560,7 @@ export const TodayView: React.FC = () => {
         </button>
       </div>
 
-      {/* Perfect Day Accomplishment Ribbon (100% complete) */}
-      {actualPercent === 100 && totalCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 3 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="py-3 px-4.5 rounded-[22px] bg-emerald-500/[0.04] border border-emerald-500/10 text-emerald-800 dark:text-emerald-400 text-xs font-semibold flex items-center justify-between shadow-2xs select-none"
-        >
-          <span className="flex items-center gap-2">
-            <span className="text-sm select-none">✨</span>
-            <span className="font-bold">A completely quiet, satisfying day accomplished.</span>
-          </span>
-          <span className="font-mono text-[9px] uppercase font-bold tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-            Quiet Pride
-          </span>
-        </motion.div>
-      )}
+
 
       {/* Main Directory List container */}
       {totalCount === 0 ? (
@@ -366,31 +622,6 @@ export const TodayView: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Reduced-choice ADHD "Next Best Action" Banner */}
-      {nextUpHabit && (
-        <div 
-          id="next-action-strip" 
-          onClick={() => toggleLog(nextUpHabit.id, todayStr)}
-          className="bg-[#FCFAF4] hover:bg-[#FAF6EB] dark:bg-amber-400/[0.02] border border-[#F2EFE6] dark:border-amber-400/10 p-5 rounded-[28px] flex items-center justify-between gap-4 text-xs select-none shadow-[0_2px_18px_-4px_rgba(0,0,0,0.01)] transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] duration-150"
-        >
-          <div className="flex flex-col text-left min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-1">
-              <Sparkles size={11} className="animate-pulse" />
-              <span>NEXT BEST ACTION</span>
-            </span>
-            <span className="font-extrabold text-[15px] text-gray-950 dark:text-neutral-100 truncate mt-0.5">
-              Complete your {nextUpHabit.name}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="w-10 h-10 rounded-full bg-white dark:bg-neutral-850 border border-gray-100 dark:border-neutral-805 flex items-center justify-center text-amber-500 shadow-md transform group-hover:translate-x-1 transition-transform cursor-pointer shrink-0"
-          >
-            <ChevronRight size={18} strokeWidth={2.5} />
-          </button>
         </div>
       )}
 

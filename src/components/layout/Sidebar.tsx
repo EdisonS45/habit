@@ -1,9 +1,9 @@
 import React from "react";
 import { useHabitStore } from "../../context/HabitContext";
-import { CheckSquare, Grid, Calendar, BarChart3, Settings as SettingsIcon, Sun, Moon } from "lucide-react";
+import { CheckSquare, Grid, Calendar, BarChart3, Settings as SettingsIcon } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
-  const { activeView, setActiveView, settings, updateSettings } = useHabitStore();
+  const { activeView, setActiveView, settings } = useHabitStore();
 
   const navItems = [
     { id: "today", label: "Today tracking", icon: CheckSquare },
@@ -14,10 +14,6 @@ export const Sidebar: React.FC = () => {
   ];
 
   const activeColor = settings.accentColor || "#7C9EFF";
-
-  const toggleTheme = () => {
-    updateSettings({ theme: settings.theme === "light" ? "dark" : "light" });
-  };
 
   return (
     <aside
@@ -83,20 +79,6 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* Quick Theme Switcher */}
-        <button
-          onClick={toggleTheme}
-          id="sidebar-theme-toggle"
-          className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-neutral-400 hover:text-gray-800 dark:hover:text-neutral-200 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800/30 cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-800"
-        >
-          <span>Appearance</span>
-          {settings.theme === "light" ? (
-            <div className="flex items-center gap-1"><Sun size={12} className="text-amber-500" /><span>Light</span></div>
-          ) : (
-            <div className="flex items-center gap-1"><Moon size={12} className="text-indigo-400" /><span>Dark</span></div>
-          )}
-        </button>
       </div>
     </aside>
   );

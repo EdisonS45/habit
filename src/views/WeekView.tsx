@@ -6,6 +6,7 @@ import { WeeklyBarChart } from "../components/charts/WeeklyBarChart";
 import { CircularProgress } from "../components/ui/CircularProgress";
 import { motion } from "framer-motion";
 import { getStreak } from "../hooks/useAnalytics";
+import { Tooltip } from "../components/ui/Tooltip";
 
 export const WeekView: React.FC = () => {
   const { habits, logs, toggleLog, settings } = useHabitStore();
@@ -46,9 +47,28 @@ export const WeekView: React.FC = () => {
     totalCompletionsThisWeek += dayLogs.filter((id) => activeHabits.some((h) => h.id === id)).length;
   });
 
-  const weekConsistencyScore = totalCount > 0 
-    ? Math.round((totalCompletionsThisWeek / (totalCount * 7)) * 100) 
-    : 0;
+  // Total logged days across entire history to detect learning state
+  const totalLoggedInDays = Object.keys(logs).filter((key) => logs[key] && logs[key].length > 0).length;
+
+  // Count how many distinct days in this week had at least 1 check completed
+  let uniqueDaysShownUp = 0;
+  weekDates.forEach((wDate) => {
+    const dStr = format(wDate, "yyyy-MM-dd");
+    const dayLogs = logs[dStr] || [];
+    const completedOnThisDay = dayLogs.some((id) => activeHabits.some((h) => h.id === id));
+    if (completedOnThisDay) {
+      uniqueDaysShownUp++;
+    }
+  });
+
+  const hasFewerThan7DaysData = totalLoggedInDays < 7;
+
+  // Narratives based on days shown up
+  const progressText = uniqueDaysShownUp === 0
+    ? "Ready to build momentum? Let's take one tiny step today."
+    : uniqueDaysShownUp === 1
+    ? "You showed up 1 day this week — that counts! Excellent start."
+    : `You showed up ${uniqueDaysShownUp} days this week — look at that momentum building!`;
 
   const isFuture = (date: Date) => {
     const today = new Date();
@@ -99,21 +119,67 @@ export const WeekView: React.FC = () => {
 
       {/* Row showing weekly metric stats card and chart */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Large premium circular consistency score ring */}
-        <div id="week-metric-card" className="stats-card p-6 shadow-xs flex flex-col justify-center items-center text-center space-y-4">
-          <span className="text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest block">
-            Weekly Consistency
-          </span>
-          <CircularProgress
-            percentage={weekConsistencyScore}
-            size={110}
-            strokeWidth={9}
-            color={settings.accentColor || "#7C9EFF"}
-            showText={true}
-          />
-          <p className="text-[11px] text-secondary max-w-xs font-semibold leading-relaxed">
-            Score is based on completed checks of {totalCount} active habits over this 7-day period.
-          </p>
+        {/* Dynamic, ADHD-Friendly Weekly Momentum Card */}
+        <div id="week-metric-card" className="stats-card p-6 shadow-sm flex flex-col justify-center items-center text-center space-y-4 bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800">
+          {hasFewerThan7DaysData ? (
+            <div className="space-y-3.5 py-2 animate-fade-in text-left md:text-center">
+              <span className="text-3xl block select-none mb-1 text-center">🌱</span>
+              <h5 className="text-[11px] font-extrabold text-[#7C9EFF] dark:text-[#9FB7FF] uppercase tracking-wider text-center block">
+                Your Momentum Is Loading
+              </h5>
+              <div className="space-y-1.5">
+                <p className="text-xs font-black text-gray-800 dark:text-neutral-150 text-center leading-snug">
+                  Habits are built day by day.
+                </p>
+                <p className="text-[10px] text-gray-500 dark:text-neutral-400 font-semibold leading-relaxed text-center">
+                  Consistency is a practice, not a score. Check in on habits dynamically to light up your momentum board. You're doing great!
+                </p>
+              </div>
+              <div className="pt-1.5 flex justify-center">
+                <span className="px-3 py-1 bg-[#7C9EFF]/10 text-[#7293FD] border border-[#7C9EFF]/20 rounded-full text-[9px] font-extrabold uppercase tracking-wider">
+                  Tiny Starts count
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full space-y-4 animate-fade-in text-left">
+              <span className="text-xs font-black text-gray-400 dark:text-neutral-500 uppercase tracking-widest pl-1 inline-flex items-center gap-1.5 align-middle">
+                Your Weekly Momentum
+                <Tooltip content="Tracks how many days this week you completed or skipped at least one active habit to secure your streak." />
+              </span>
+              
+              {/* Custom visual momentum bar filling up */}
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between items-end text-[10px] font-black uppercase tracking-wider text-gray-850 dark:text-neutral-205 pl-1 pr-1">
+                  <span>Progress Bar</span>
+                  <span style={{ color: settings.accentColor }}>{uniqueDaysShownUp} of 7 days</span>
+                </div>
+                <div className="w-full h-3.5 bg-gray-100 dark:bg-neutral-950 border border-gray-150 dark:border-neutral-800/80 rounded-2xl overflow-hidden p-0.5 shadow-inner">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(uniqueDaysShownUp / 7) * 100}%` }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    style={{ backgroundColor: settings.accentColor || "#7C9EFF" }}
+                    className="h-full rounded-2xl shadow-3xs"
+                  />
+                </div>
+              </div>
+
+              {/* Narratives of days loaded */}
+              <div className="bg-gray-50/50 dark:bg-neutral-950/40 border border-gray-150 dark:border-neutral-800/60 p-3 rounded-2xl space-y-1">
+                <span className="text-[9px] font-extrabold uppercase text-[#7C9EFF] tracking-wider block">
+                  Weekly Narrative
+                </span>
+                <p className="text-[11px] text-gray-700 dark:text-neutral-300 font-bold leading-relaxed">
+                  {progressText}
+                </p>
+              </div>
+
+              <p className="text-[10px] text-secondary font-semibold leading-relaxed pl-1">
+                This tracking accounts for at least one checked off activity of {totalCount} habits configured over the 7-day period.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Weekly Bar Chart */}

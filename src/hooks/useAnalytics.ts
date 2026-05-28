@@ -3,17 +3,17 @@ import { format, subDays, startOfWeek, addDays } from "date-fns";
 import { Habit, LogMap, Category } from "../types";
 import { useHabitStore } from "../context/HabitContext";
 
-// Exact required formulas
-export function getStreak(habitId: string, logs: LogMap): number {
+// Exact required formulas with skip-mitigations for ADHD support
+export function getStreak(habitId: string, logs: LogMap, skips: LogMap = {}): number {
   let count = 0;
   let date = new Date();
   const todayKey = format(date, "yyyy-MM-dd");
-  if (!logs[todayKey]?.includes(habitId)) {
+  if (!logs[todayKey]?.includes(habitId) && !skips[todayKey]?.includes(habitId)) {
     date = subDays(date, 1);
   }
   while (true) {
     const key = format(date, "yyyy-MM-dd");
-    if (logs[key]?.includes(habitId)) {
+    if (logs[key]?.includes(habitId) || skips[key]?.includes(habitId)) {
       count++;
       date = subDays(date, 1);
     } else {
@@ -23,9 +23,10 @@ export function getStreak(habitId: string, logs: LogMap): number {
   return count;
 }
 
-export function getLongestStreak(habitId: string, logs: LogMap): number {
-  const loggedDates = Object.keys(logs)
-    .filter((dStr) => logs[dStr]?.includes(habitId))
+export function getLongestStreak(habitId: string, logs: LogMap, skips: LogMap = {}): number {
+  // Capture all logged or skipped dates
+  const loggedDates = Object.keys({ ...logs, ...skips })
+    .filter((dStr) => logs[dStr]?.includes(habitId) || skips[dStr]?.includes(habitId))
     .sort();
 
   if (loggedDates.length === 0) return 0;
@@ -76,14 +77,20 @@ export function getWeeklyConsistency(habits: Habit[], logs: LogMap): number {
 
 // Custom hook signature aligned with Analytics views
 export function useAnalytics(selectedHabitId?: string) {
-  const { habits, logs } = useHabitStore();
+  const { habits, logs, skips } = useHabitStore();
 
-  // Category Breakdown: health, fitness, study, mindfulness, productivity
+  // Category Breakdown dynamically collected from active habits or standard categories
   const categoryAnalytics = useMemo(() => {
-    const categories: Category[] = ["health", "fitness", "study", "mindfulness", "productivity"];
+    const defaultCategories: Category[] = ["health", "fitness", "study", "mindfulness", "productivity"];
+    // Get any active custom categories from habits
+    const customCats = habits
+      .map((h) => h.category.toLowerCase().trim())
+      .filter((cat) => cat && !defaultCategories.includes(cat));
+    
+    const categories = Array.from(new Set([...defaultCategories, ...customCats]));
     
     return categories.map((cat) => {
-      const catHabits = habits.filter((h) => h.category === cat && h.isActive);
+      const catHabits = habits.filter((h) => h.category.toLowerCase().trim() === cat.toLowerCase().trim() && h.isActive);
       if (catHabits.length === 0) {
         return { name: cat.charAt(0).toUpperCase() + cat.slice(1), rate: 0, count: 0 };
       }
@@ -92,7 +99,7 @@ export function useAnalytics(selectedHabitId?: string) {
       const avgRate = Math.round(totalRate / catHabits.length);
       
       return {
-        name: cat.charAt(0).toUpperCase() + cat.slice(1), // Health, Fitness, Study, Mindfulness, Productivity
+        name: cat.charAt(0).toUpperCase() + cat.slice(1), 
         rate: avgRate,
         count: catHabits.length,
       };
@@ -108,12 +115,12 @@ export function useAnalytics(selectedHabitId?: string) {
       emoji: h.emoji,
       color: h.color,
       category: h.category,
-      streak: getStreak(h.id, logs),
-      longestStreak: getLongestStreak(h.id, logs),
+      streak: getStreak(h.id, logs, skips),
+      longestStreak: getLongestStreak(h.id, logs, skips),
     }));
 
     return scored.sort((a, b) => b.streak - a.streak);
-  }, [habits, logs]);
+  }, [habits, logs, skips]);
 
   // Daily tracker last 30 days
   const monthlyCompletionTrend = useMemo(() => {
@@ -125,7 +132,10 @@ export function useAnalytics(selectedHabitId?: string) {
       const labelStr = format(targetDate, "MMM d");
       
       const completedList = logs[dateStr] || [];
-      const count = completedList.filter((id) => habits.some((h) => h.id === id)).length;
+      const skippedList = skips[dateStr] || [];
+      // Completions or healthy skips count as positive momentum
+      const count = completedList.filter((id) => habits.some((h) => h.id === id)).length +
+                    skippedList.filter((id) => habits.some((h) => h.id === id)).length;
 
       trend.push({
         date: labelStr,
@@ -133,7 +143,7 @@ export function useAnalytics(selectedHabitId?: string) {
       });
     }
     return trend;
-  }, [logs, habits]);
+  }, [logs, skips, habits]);
 
   // Individual statistics computed over a selected habit ID
   const individualHabitStats = useMemo(() => {
@@ -142,8 +152,8 @@ export function useAnalytics(selectedHabitId?: string) {
     const habit = habits.find((h) => h.id === selectedHabitId);
     if (!habit) return null;
 
-    const currentStreak = getStreak(selectedHabitId, logs);
-    const longestStreak = getLongestStreak(selectedHabitId, logs);
+    const currentStreak = getStreak(selectedHabitId, logs, skips);
+    const longestStreak = getLongestStreak(selectedHabitId, logs, skips);
     
     const rate7 = getCompletionRate(selectedHabitId, logs, 7);
     const rate30 = getCompletionRate(selectedHabitId, logs, 30);
@@ -158,7 +168,7 @@ export function useAnalytics(selectedHabitId?: string) {
       let logsInWeek = 0;
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
         const checkStr = format(addDays(mon, dayOffset), "yyyy-MM-dd");
-        if ((logs[checkStr] || []).includes(selectedHabitId)) {
+        if ((logs[checkStr] || []).includes(selectedHabitId) || (skips[checkStr] || []).includes(selectedHabitId)) {
           logsInWeek++;
         }
       }
@@ -178,7 +188,7 @@ export function useAnalytics(selectedHabitId?: string) {
       rate90,
       completionsPastWeeks,
     };
-  }, [selectedHabitId, habits, logs]);
+  }, [selectedHabitId, habits, logs, skips]);
 
   return {
     categoryAnalytics,

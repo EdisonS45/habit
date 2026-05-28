@@ -6,6 +6,7 @@ import { HabitForm } from "../components/habits/HabitForm";
 import { format } from "date-fns";
 import { Trash2, Edit2, Upload, Download, RotateCcw, Check, Sparkles, User, Palette, FolderGit2, Heart, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip } from "../components/ui/Tooltip";
 
 const ACCENT_OPTIONS = [
   "#7C9EFF", // default periwinkle
@@ -205,8 +206,9 @@ export const SettingsView: React.FC = () => {
 
           {/* Focus Areas settings config */}
           <div className="space-y-2 pt-1">
-            <label className="block text-[10px] uppercase font-bold text-gray-400 dark:text-neutral-500 tracking-wider">
+            <label className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Focus Pillars
+              <Tooltip content="The core areas of your life you want to prioritize. Selecting focus pillars helps personalize suggestions." />
             </label>
             <div id="settings-focus-areas-grid" className="flex flex-wrap gap-2">
               {FOCUS_AREAS_LIST.map((pill) => {
@@ -232,50 +234,17 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* SECTION 2: Appearance Segment */}
-        <div id="appearance-card" className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2.5 border-b border-gray-100 dark:border-neutral-800">
+        <div id="appearance-card" className="bg-white border border-gray-150 rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2.5 border-b border-gray-100">
             <Palette size={16} className="text-[#7C9EFF]" />
-            <h4 className="text-xs font-black uppercase tracking-wider text-gray-800 dark:text-neutral-200">
+            <h4 className="text-xs font-black uppercase tracking-wider text-gray-800">
               Visual Preferences
             </h4>
           </div>
 
-          {/* Theme custom toggle */}
-          <div className="space-y-1.5">
-            <label className="block text-[10px] uppercase font-bold text-gray-400 dark:text-neutral-500 tracking-wider">
-              Interface Theme
-            </label>
-            <div id="theme-toggles" className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-neutral-950 p-1 rounded-2xl border border-gray-150 dark:border-neutral-800">
-              <button
-                type="button"
-                id="light-theme-btn"
-                onClick={() => handleThemeToggle("light")}
-                className={`py-2 text-[10px] uppercase tracking-wider font-extrabold rounded-xl transition-all cursor-pointer ${
-                  settings.theme === "light"
-                    ? "bg-white dark:bg-neutral-880 shadow-2xs text-gray-900 dark:text-neutral-100 border border-gray-100 dark:border-neutral-700"
-                    : "text-gray-400"
-                }`}
-              >
-                ☀️ Light Mode
-              </button>
-              <button
-                type="button"
-                id="dark-theme-btn"
-                onClick={() => handleThemeToggle("dark")}
-                className={`py-2 text-[10px] uppercase tracking-wider font-extrabold rounded-xl transition-all cursor-pointer ${
-                  settings.theme === "dark"
-                    ? "bg-white dark:bg-neutral-880 shadow-2xs text-gray-900 dark:text-neutral-100 border border-gray-100 dark:border-neutral-700"
-                    : "text-gray-400"
-                }`}
-              >
-                🌙 Dark Mode
-              </button>
-            </div>
-          </div>
-
           {/* Accent Color custom picker */}
           <div className="space-y-2 pt-1">
-            <label className="block text-[10px] uppercase font-bold text-gray-400 dark:text-neutral-500 tracking-wider">
+            <label className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Brand Accent Color
             </label>
             <div id="appearance-accent-palette" className="flex items-center gap-3">
